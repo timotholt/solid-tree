@@ -232,7 +232,29 @@ Tokens: `--tree-font-size` · `--tree-indent-base` · `--tree-indent-step` ·
 `--tree-action-gap` · `--tree-action-opacity` · `--tree-dim-opacity` ·
 `--tree-divider-color` (→ `--border-subtle`) · `--tree-divider-margin` ·
 `--tree-mark-bg` · `--tree-mark-color` · `--tree-user-select` (default `none` —
-rows don't highlight text on click; set `text`/`auto` to re-enable).
+rows don't highlight text on click; set `text`/`auto` to re-enable) ·
+`--tree-label-white-space` (default `nowrap`) · `--tree-row-align-items`
+(default `center`).
+
+### Multi-line rows
+
+Rows aren't fixed-height — they grow with content. For 2/3/N-line items, set
+`--tree-label-white-space: normal` + `--tree-row-align-items: flex-start` on the
+container, then return a stacked block from `renderLabel`:
+
+```css
+.list { --tree-label-white-space: normal; --tree-row-align-items: flex-start; }
+```
+```tsx
+renderLabel={(n) => (
+  <div style="display:flex;flex-direction:column">
+    <span>{n.payload.stem}</span>
+    <span>{n.payload.meta}</span>
+    <span>{n.payload.status}</span>
+  </div>
+)}
+```
+Selection, chevron, indent, and the action slot all still work on the taller rows.
 
 > `basePadding`/`indentStep` props still work — when passed they pin
 > `--tree-indent-base/step` for that instance; omit them to theme via the tokens.

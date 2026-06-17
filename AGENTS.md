@@ -127,6 +127,12 @@ Gotchas: (1) while a `searchQuery` is active, rendered nodes are `{...node}` COP
 
 Recommendation: drive tree + detail pane from one store; pass the tree a DERIVED (cloned, not shared) `data`; update via store setters (or immutable array replace) with stable ids. No package change needed — this is a consumer data-flow contract.
 
+## Multi-line rows
+Rows grow with content (no fixed height). For 2/3/N-line items: set `--tree-label-white-space: normal` + `--tree-row-align-items: flex-start` on the container, then return a stacked block from `renderLabel` (e.g. stem + meta + status). Selection/chevron/indent/action-slot all work on taller rows.
+
+## Virtualization (future)
+`<Tree>` is recursive, grows with content, no deps — fine up to a few thousand nodes. For 10k+ a separate `<VirtualTree>` is planned (see `docs/SPEC-virtualization.md`): same `TreeNodeData`/props/tokens, adds windowing via `@tanstack/solid-virtual` + a bounded-height container + `measureElement` + `scrollToIndex`. The seam is shipped: `flattenVisible(data, expanded) → FlatRow[]` (exported; dividers marked `navigable:false`). Not built yet — don't import `VirtualTree`.
+
 ## What it does NOT do (don't assume these)
 - No multi-select, no checkboxes. Single selection only.
 - No drag-and-drop, no inline rename, no context menu.

@@ -44,6 +44,10 @@ const STYLE_DEFAULTS = {
   "--tree-divider-height-default": "1px",
   "--tree-spacer-width-default": "1.33em",
   "--tree-user-select-default": "none",
+  // Multi-line: set --tree-label-white-space:normal + --tree-row-align-items:flex-start
+  // (with a stacked renderLabel) to get 2/3/N-line rows. Defaults = single line.
+  "--tree-row-align-items-default": "center",
+  "--tree-label-white-space-default": "nowrap",
 } satisfies JSX.CSSProperties;
 
 const tok = (name: string) => `var(--tree-${name}, var(--tree-${name}-default))`;
@@ -184,7 +188,40 @@ function collectIds(nodes: TreeNodeData[], acc: Set<string>): Set<string> {
   return acc;
 }
 
-const TreeRenderNode: Component<{ node: TreeNodeData; depth: number }> = (props) => {
+/** One row in the linearized, currently-visible view of the tree. */
+export interface FlatRow {
+  node: TreeNodeData;
+  depth: number;
+  hasChildren: boolean;
+  /** false for dividers — keyboard nav / a11y treeitem logic should skip these. */
+  navigable: boolean;
+}
+
+/**
+ * Linearize the tree into the rows that are currently visible (descending only
+ * into expanded nodes). Dividers are included with `navigable: false`. This is
+ * the seam `<VirtualTree>` feeds to a virtualizer; `<Tree>` renders recursively
+ * and doesn't need it.
+ */
+export function flattenVisible(
+  nodes: TreeNodeData[],
+  expanded: Record<string, boolean>,
+  depth = 0,
+  acc: FlatRow[] = []
+): FlatRow[] {
+  for (const node of nodes) {
+    const hasChildren = !!node.children && node.children.length > 0;
+    acc.push({ node, depth, hasChildren, navigable: !node.isDivider });
+    if (hasChildren && expanded[node.id]) {
+      flattenVisible(node.children!, expanded, depth + 1, acc);
+    }
+  }
+  return acc;
+}
+
+// A single row's interior (no child recursion) — shared by the recursive
+// <Tree> (via TreeBranch) and, later, the flat <VirtualTree>.
+const TreeRow: Component<{ node: TreeNodeData; depth: number }> = (props) => {
   const ctx = useTree();
 
   if (props.node.isDivider) {
@@ -208,7 +245,6 @@ const TreeRenderNode: Component<{ node: TreeNodeData; depth: number }> = (props)
   };
 
   return (
-    <>
       <div
         class="solid-tree-row"
         data-depth={props.depth}
@@ -233,7 +269,7 @@ const TreeRenderNode: Component<{ node: TreeNodeData; depth: number }> = (props)
         }}
         style={{
           display: "flex",
-          "align-items": "center",
+          "align-items": tok("row-align-items") as JSX.CSSProperties["align-items"],
           "--tree-depth": String(props.depth),
           "padding-left": isAction()
             ? "0"
@@ -250,7 +286,7 @@ const TreeRenderNode: Component<{ node: TreeNodeData; depth: number }> = (props)
           class="solid-tree-row-content"
           style={{
             display: "flex",
-            "align-items": "center",
+            "align-items": tok("row-align-items") as JSX.CSSProperties["align-items"],
             flex: isAction() ? "initial" : "1",
             overflow: "hidden",
           }}
@@ -277,9 +313,9 @@ const TreeRenderNode: Component<{ node: TreeNodeData; depth: number }> = (props)
 
           <span
             class="solid-tree-label"
-            style={`flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; ${props.depth === 0 && hasChildren() ? `font-weight:${tok("group-weight")};` : ""}`}
+            style={`flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: ${tok("label-white-space")}; display: flex; align-items: center; ${props.depth === 0 && hasChildren() ? `font-weight:${tok("group-weight")};` : ""}`}
           >
-            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <span style={`overflow: hidden; text-overflow: ellipsis; white-space: ${tok("label-white-space")};`}>
               <Show
                 when={ctx.renderLabel}
                 fallback={<HighlightedLabel label={props.node.label} query={ctx.highlightQuery()} />}
@@ -316,10 +352,22 @@ const TreeRenderNode: Component<{ node: TreeNodeData; depth: number }> = (props)
           </div>
         </Show>
       </div>
+  );
+};
 
-      <Show when={hasChildren() && isExpanded()}>
+// Recursive wrapper: a row plus its expanded children. <Tree> renders these.
+// (Kept recursive on purpose — fine-grained, stable identity. Flattening +
+// by-id keying is a virtualizer concern, handled by flattenVisible/VirtualTree.)
+const TreeBranch: Component<{ node: TreeNodeData; depth: number }> = (props) => {
+  const ctx = useTree();
+  const hasChildren = () => !!props.node.children && props.node.children.length > 0;
+  const isExpanded = () => ctx.expanded()[props.node.id] || false;
+  return (
+    <>
+      <TreeRow node={props.node} depth={props.depth} />
+      <Show when={!props.node.isDivider && hasChildren() && isExpanded()}>
         <For each={props.node.children}>
-          {(child) => <TreeRenderNode node={child} depth={props.depth + 1} />}
+          {(child) => <TreeBranch node={child} depth={props.depth + 1} />}
         </For>
       </Show>
     </>
@@ -454,7 +502,7 @@ export const Tree: Component<TreeProps> = (props) => {
           when={!noMatches()}
           fallback={<div class="solid-tree-empty">{props.noMatchesLabel ?? "No matches"}</div>}
         >
-          <For each={view().data}>{(node) => <TreeRenderNode node={node} depth={0} />}</For>
+          <For each={view().data}>{(node) => <TreeBranch node={node} depth={0} />}</For>
         </Show>
       </TreeContext.Provider>
     </div>

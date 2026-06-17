@@ -209,6 +209,38 @@ const ThemedDemo: Component = () => {
   );
 };
 
+// ── 9. Multi-line rows (tokens + renderLabel) ─────────────────────────────────
+const MultiLineDemo: Component = () => {
+  const [sel, setSel] = createSignal<string | null>("q1");
+  const data: TreeNodeData[] = [
+    {
+      id: "questions", label: "Questions", type: "group",
+      children: [
+        { id: "q1", label: "Q1", type: "item", payload: { stem: "A 54 y/o presents with crushing substernal chest pain radiating to the jaw…", meta: "Cardiovascular · Hard", status: "PENDING REVIEW" } },
+        { id: "q2", label: "Q2", type: "item", payload: { stem: "Post-op day 2, urine output has fallen to 15 mL/hr over 4 hours…", meta: "Renal · Medium", status: "PUBLISHED" } },
+      ],
+    },
+  ];
+  return (
+    <div class="multiline-tree">
+      <Tree
+        data={data} selectedId={sel()} storageKey="multiline" onSelect={(n) => setSel(n.id)}
+        renderLabel={(n) =>
+          n.payload?.stem ? (
+            <div style="display:flex;flex-direction:column;gap:2px;line-height:1.3">
+              <span>{n.payload.stem}</span>
+              <span style="opacity:.6;font-size:.85em">{n.payload.meta}</span>
+              <span style="opacity:.55;font-size:.8em;letter-spacing:.04em">{n.payload.status}</span>
+            </div>
+          ) : (
+            n.label
+          )
+        }
+      />
+    </div>
+  );
+};
+
 export const App: Component = () => (
   <main>
     <h1>@timotholt/tree</h1>
@@ -340,6 +372,24 @@ export const App: Component = () => (
 .themed-tree .solid-tree-row[data-selected] { color: #fff; }`}
     >
       <ThemedDemo />
+    </Demo>
+
+    <Demo
+      title="9. Multi-line rows"
+      blurb="Rows aren't fixed-height — they grow with content. Set --tree-label-white-space:normal + --tree-row-align-items:flex-start, then return a stacked block from renderLabel for 2/3/N-line items (e.g. a question stem + meta + status). Selection, chevron, indent all still work on the taller rows."
+      code={`/* on the container */
+.list { --tree-label-white-space: normal;
+        --tree-row-align-items: flex-start; }
+
+renderLabel={(n) => (
+  <div style="display:flex;flex-direction:column">
+    <span>{n.payload.stem}</span>
+    <span>{n.payload.meta}</span>
+    <span>{n.payload.status}</span>
+  </div>
+)}`}
+    >
+      <MultiLineDemo />
     </Demo>
   </main>
 );
