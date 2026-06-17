@@ -1,0 +1,43 @@
+/*
+ * Optional default theme for @timotholt/tree.
+ *   import "@timotholt/tree/theme.css";
+ *
+ * Every value is a CSS custom property with a fallback, so you can override
+ * any of them from your own stylesheet (or skip this file entirely and define
+ * the two required vars yourself: --text-muted and --border-subtle).
+ */
+
+.solid-tree-container {
+  /* Required by the component (chevron color + divider color). */
+  --text-muted: var(--text-muted, #8a8f98);
+  --border-subtle: var(--border-subtle, rgba(255, 255, 255, 0.08));
+
+  /* Row appearance. */
+  --tree-row-color: var(--tree-row-color, inherit);
+  --tree-row-radius: var(--tree-row-radius, 4px);
+  --tree-row-hover-bg: var(--tree-row-hover-bg, rgba(127, 127, 127, 0.1));
+  --tree-row-active-bg: var(--tree-row-active-bg, rgba(127, 127, 127, 0.18));
+}
+
+.solid-tree-row {
+  display: flex;
+  align-items: center;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-right: 8px;
+  color: var(--tree-row-color);
+  border-radius: var(--tree-row-radius);
+}
+
+.solid-tree-row:hover {
+  background: var(--tree-row-hover-bg);
+}
+
+.solid-tree-row.active {
+  background: var(--tree-row-active-bg);
+}
+
+.solid-tree-action {
+  display: flex;
+  align-items: center;
+}
