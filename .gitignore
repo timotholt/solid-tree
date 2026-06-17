@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+playground/node_modules/
+playground/dist/
+.vite/
