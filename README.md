@@ -195,7 +195,8 @@ Tokens: `--tree-font-size` · `--tree-indent-base` · `--tree-indent-step` ·
 `--tree-chevron-color` (→ `--text-muted`) · `--tree-chevron-gap` ·
 `--tree-action-gap` · `--tree-action-opacity` · `--tree-dim-opacity` ·
 `--tree-divider-color` (→ `--border-subtle`) · `--tree-divider-margin` ·
-`--tree-mark-bg` · `--tree-mark-color`.
+`--tree-mark-bg` · `--tree-mark-color` · `--tree-user-select` (default `none` —
+rows don't highlight text on click; set `text`/`auto` to re-enable).
 
 > `basePadding`/`indentStep` props still work — when passed they pin
 > `--tree-indent-base/step` for that instance; omit them to theme via the tokens.

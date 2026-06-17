@@ -27,6 +27,7 @@ const STYLE_DEFAULTS = {
   "--tree-divider-margin-default": "8px",
   "--tree-divider-height-default": "1px",
   "--tree-spacer-width-default": "16px",
+  "--tree-user-select-default": "none",
 } satisfies JSX.CSSProperties;
 
 const tok = (name: string) => `var(--tree-${name}, var(--tree-${name}-default))`;
@@ -216,6 +217,8 @@ const TreeRenderNode: Component<{
           "justify-content": isAction() ? "center" : "flex-start",
           opacity: isAction() ? tok("action-opacity") : dimmed() ? tok("dim-opacity") : "1",
           "font-size": tok("font-size"),
+          "user-select": tok("user-select") as JSX.CSSProperties["user-select"],
+          "-webkit-user-select": tok("user-select") as JSX.CSSProperties["-webkit-user-select"],
           cursor: "pointer",
         }}
       >
