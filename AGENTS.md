@@ -98,6 +98,21 @@ const [q, setQ] = createSignal("");
 - **Highlight** (`<mark class="solid-tree-mark">`) is automatic ONLY on the default-matcher path. With a custom `matcher` or a `renderLabel`, you do highlighting yourself.
 - **Caveat:** search only sees nodes present in `data` — it cannot match unloaded/lazy children.
 
+## Theming
+Every opinionated value is a `--tree-*` CSS var with an inline fallback (so it works with no stylesheet). Override by setting tokens on `.solid-tree-container` or ANY ancestor — they inherit, no specificity fight:
+```css
+.my-sidebar { --tree-font-size: 14px; --tree-indent-step: 20px; --tree-row-active-bg: #2563eb; }
+```
+Tokens: `--tree-font-size` `--tree-indent-base` `--tree-indent-step` `--tree-row-pad-x/y` `--tree-row-radius` `--tree-row-color` `--tree-row-hover-bg` `--tree-row-active-bg` `--tree-group-weight` `--tree-count-opacity` `--tree-count-gap` `--tree-icon-left-gap` `--tree-icon-right-gap` `--tree-icon-right-size` `--tree-chevron-size` `--tree-chevron-color`(→`--text-muted`) `--tree-chevron-gap` `--tree-action-gap` `--tree-action-opacity` `--tree-dim-opacity` `--tree-divider-color`(→`--border-subtle`) `--tree-divider-margin` `--tree-mark-bg` `--tree-mark-color`.
+
+`basePadding`/`indentStep` props, when passed, pin `--tree-indent-base/step` for that instance; omit them to theme via tokens.
+
+State for CSS targeting (no stylesheet needed) — rows emit `data-depth`, `data-variant` (`default|action`), `data-selected`, `data-has-children`, `data-dimmed`; container emits `data-searching`:
+```css
+.solid-tree-row[data-selected] { font-weight: 600; }
+```
+Structural class hooks: `.solid-tree-container/-row/-row-content/-label/-count/-icon-left/-icon-right/-chevron/-spacer/-action/-divider/-mark/-empty`.
+
 ## What it does NOT do (don't assume these)
 - No multi-select, no checkboxes. Single selection only.
 - No drag-and-drop, no inline rename, no context menu.

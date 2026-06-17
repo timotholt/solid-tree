@@ -199,6 +199,16 @@ const SearchDimDemo: Component = () => {
   );
 };
 
+// ── 10. Theming via tokens + data-attributes ─────────────────────────────────
+const ThemedDemo: Component = () => {
+  const [sel, setSel] = createSignal<string | null>("mi");
+  return (
+    <div class="themed-tree">
+      <Tree data={medTree()} selectedId={sel()} storageKey="themed" onSelect={(n) => setSel(n.id)} />
+    </div>
+  );
+};
+
 export const App: Component = () => (
   <main>
     <h1>@timotholt/tree</h1>
@@ -315,6 +325,21 @@ export const App: Component = () => (
 />`}
     >
       <SearchDimDemo />
+    </Demo>
+
+    <Demo
+      title="8. Theming — tokens + data-attributes"
+      blurb="Every opinionated value is a --tree-* CSS var with a sane fallback (inline, so it works with no stylesheet). Override any of them on the container or any ancestor — no specificity fight. Rows also emit data-depth / data-variant / data-selected / data-has-children for CSS/Tailwind targeting."
+      code={`.themed-tree {
+  --tree-font-size: 15px;
+  --tree-indent-step: 22px;
+  --tree-group-weight: 600;
+  --tree-row-active-bg: #2563eb;
+  --tree-chevron-color: #60a5fa;
+}
+.themed-tree .solid-tree-row[data-selected] { color: #fff; }`}
+    >
+      <ThemedDemo />
     </Demo>
   </main>
 );

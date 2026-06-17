@@ -1,45 +1,52 @@
 /*
- * Optional default theme for @timotholt/tree.
+ * Optional theme for @timotholt/tree.
  *   import "@timotholt/tree/theme.css";
  *
- * Every value is a CSS custom property with a fallback, so you can override
- * any of them from your own stylesheet (or skip this file entirely and define
- * the two required vars yourself: --text-muted and --border-subtle).
+ * The component is self-laying-out without this file (flex/ellipsis are inline).
+ * This stylesheet only adds cosmetics: padding, radius, hover/active background,
+ * highlight, empty-state. Skip it and you only lose those niceties.
+ *
+ * EVERY look is a CSS custom property with a fallback. Override any token by
+ * setting it on .solid-tree-container or ANY ancestor (custom props inherit):
+ *
+ *   .solid-tree-container { --tree-font-size: 14px; --tree-group-weight: 600; }
+ *
+ * Or target state with data-attributes (no theme.css needed):
+ *   .solid-tree-row[data-selected] { ... }
+ *   .solid-tree-row[data-depth="0"] { ... }
+ *   .solid-tree-row[data-variant="action"] { ... }
+ *   .solid-tree-container[data-searching] { ... }
+ *
+ * Tokens (defaults shown): --tree-font-size 12px · --tree-indent-base 12px ·
+ * --tree-indent-step 12px · --tree-row-pad-y 4px · --tree-row-pad-x 8px ·
+ * --tree-row-radius 4px · --tree-row-color inherit · --tree-row-hover-bg ·
+ * --tree-row-active-bg · --tree-group-weight 700 · --tree-count-opacity .5 ·
+ * --tree-count-gap 4px · --tree-icon-left-gap 0 · --tree-icon-right-gap 6px ·
+ * --tree-icon-right-size 11px · --tree-chevron-size 11px · --tree-chevron-color
+ * (→ --text-muted) · --tree-chevron-gap 4px · --tree-action-gap 8px ·
+ * --tree-action-opacity .6 · --tree-dim-opacity .38 · --tree-divider-color
+ * (→ --border-subtle) · --tree-divider-margin 8px · --tree-mark-bg #fde68a ·
+ * --tree-mark-color inherit.
+ *
+ * Still required somewhere up the tree (or rely on the fallbacks here):
+ *   --text-muted (chevron), --border-subtle (divider).
  */
 
-.solid-tree-container {
-  /* Required by the component (chevron color + divider color). */
-  --text-muted: var(--text-muted, #8a8f98);
-  --border-subtle: var(--border-subtle, rgba(255, 255, 255, 0.08));
-
-  /* Row appearance. */
-  --tree-row-color: var(--tree-row-color, inherit);
-  --tree-row-radius: var(--tree-row-radius, 4px);
-  --tree-row-hover-bg: var(--tree-row-hover-bg, rgba(127, 127, 127, 0.1));
-  --tree-row-active-bg: var(--tree-row-active-bg, rgba(127, 127, 127, 0.18));
-}
-
 .solid-tree-row {
-  display: flex;
-  align-items: center;
-  padding-top: 4px;
-  padding-bottom: 4px;
-  padding-right: 8px;
-  color: var(--tree-row-color);
-  border-radius: var(--tree-row-radius);
+  padding-top: var(--tree-row-pad-y, 4px);
+  padding-bottom: var(--tree-row-pad-y, 4px);
+  padding-right: var(--tree-row-pad-x, 8px);
+  color: var(--tree-row-color, inherit);
+  border-radius: var(--tree-row-radius, 4px);
 }
 
 .solid-tree-row:hover {
-  background: var(--tree-row-hover-bg);
+  background: var(--tree-row-hover-bg, rgba(127, 127, 127, 0.1));
 }
 
-.solid-tree-row.active {
-  background: var(--tree-row-active-bg);
-}
-
-.solid-tree-action {
-  display: flex;
-  align-items: center;
+.solid-tree-row.active,
+.solid-tree-row[data-selected] {
+  background: var(--tree-row-active-bg, rgba(127, 127, 127, 0.18));
 }
 
 .solid-tree-mark {
@@ -51,7 +58,7 @@
 
 .solid-tree-empty {
   padding: 8px 12px;
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: var(--tree-font-size, 12px);
+  color: var(--text-muted, #8a8f98);
   opacity: 0.7;
 }

@@ -9,10 +9,11 @@ export interface ChevronProps {
 export const Chevron: Component<ChevronProps> = (props) => {
   return (
     <span
+      class="solid-tree-chevron"
       onClick={props.onClick}
       style={{
-        "font-size": "11px",
-        color: "var(--text-muted)",
+        "font-size": "var(--tree-chevron-size, 11px)",
+        color: "var(--tree-chevron-color, var(--text-muted))",
         width: "12px",
         display: "inline-block",
         cursor: "pointer",

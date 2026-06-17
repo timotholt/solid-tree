@@ -170,6 +170,52 @@ const [q, setQ] = createSignal("");
 - **Note:** prune-search assumes the subtree is loaded — it can't match nodes you
   haven't supplied (e.g. lazy/async children).
 
+## Theming
+
+Every opinionated value is a `--tree-*` CSS custom property with its default baked
+in as an inline fallback — so the component looks right with **no stylesheet**, and
+you override any value **without a specificity fight**. Set tokens on
+`.solid-tree-container` or any ancestor (custom properties inherit):
+
+```css
+.my-sidebar {
+  --tree-font-size: 14px;
+  --tree-indent-step: 20px;
+  --tree-group-weight: 600;
+  --tree-row-active-bg: #2563eb;
+  --tree-chevron-color: #60a5fa;
+}
+```
+
+Tokens: `--tree-font-size` · `--tree-indent-base` · `--tree-indent-step` ·
+`--tree-row-pad-x/y` · `--tree-row-radius` · `--tree-row-color` ·
+`--tree-row-hover-bg` · `--tree-row-active-bg` · `--tree-group-weight` ·
+`--tree-count-opacity` · `--tree-count-gap` · `--tree-icon-left-gap` ·
+`--tree-icon-right-gap` · `--tree-icon-right-size` · `--tree-chevron-size` ·
+`--tree-chevron-color` (→ `--text-muted`) · `--tree-chevron-gap` ·
+`--tree-action-gap` · `--tree-action-opacity` · `--tree-dim-opacity` ·
+`--tree-divider-color` (→ `--border-subtle`) · `--tree-divider-margin` ·
+`--tree-mark-bg` · `--tree-mark-color`.
+
+> `basePadding`/`indentStep` props still work — when passed they pin
+> `--tree-indent-base/step` for that instance; omit them to theme via the tokens.
+
+**State via data-attributes** — every row carries `data-depth`, `data-variant`
+(`default`|`action`), `data-selected`, `data-has-children`, `data-dimmed`; the
+container carries `data-searching`. Target them with plain CSS (no theme.css):
+
+```css
+.solid-tree-row[data-selected] { font-weight: 600; }
+.solid-tree-row[data-depth="0"] { text-transform: uppercase; }
+.solid-tree-container[data-searching] .solid-tree-row { transition: opacity .1s; }
+```
+
+Class hooks for structure: `.solid-tree-container`, `.solid-tree-row`,
+`.solid-tree-row-content`, `.solid-tree-label`, `.solid-tree-count`,
+`.solid-tree-icon-left`, `.solid-tree-icon-right`, `.solid-tree-chevron`,
+`.solid-tree-spacer`, `.solid-tree-action`, `.solid-tree-divider`,
+`.solid-tree-mark`, `.solid-tree-empty`.
+
 ## Cutting a new version
 
 ```bash

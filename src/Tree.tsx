@@ -136,7 +136,12 @@ const TreeRenderNode: Component<{
   isDimmed: (id: string) => boolean;
 }> = (props) => {
   if (props.node.isDivider) {
-    return <div style="height: 1px; background: var(--border-subtle); margin: 8px 0;" />;
+    return (
+      <div
+        class="solid-tree-divider"
+        style="height: 1px; background: var(--tree-divider-color, var(--border-subtle)); margin: var(--tree-divider-margin, 8px) 0;"
+      />
+    );
   }
 
   const isAction = () => props.node.variant === "action";
@@ -150,12 +155,15 @@ const TreeRenderNode: Component<{
     props.onToggle(props.node.id);
   };
 
-  const calculatePadding = () => `${props.depth * props.indentStep + props.basePadding}px`;
-
   return (
     <>
       <div
         class={`solid-tree-row ${isSelected() ? "active" : ""}`}
+        data-depth={props.depth}
+        data-variant={props.node.variant ?? "default"}
+        data-selected={isSelected() ? "" : undefined}
+        data-has-children={hasChildren() ? "" : undefined}
+        data-dimmed={dimmed() ? "" : undefined}
         onClick={(e) => {
           // Tree-row click semantics (match VS Code / Finder):
           //   - unexpanded           → select + expand
@@ -172,14 +180,24 @@ const TreeRenderNode: Component<{
           }
         }}
         style={{
-          "padding-left": isAction() ? "0" : calculatePadding(),
+          display: "flex",
+          "align-items": "center",
+          "--tree-depth": String(props.depth),
+          "padding-left": isAction()
+            ? "0"
+            : "calc(var(--tree-indent-base, 12px) + var(--tree-depth) * var(--tree-indent-step, 12px))",
           "justify-content": isAction() ? "center" : "flex-start",
-          opacity: isAction() ? "0.6" : dimmed() ? "0.38" : "1",
-          "font-size": "12px",
+          opacity: isAction()
+            ? "var(--tree-action-opacity, 0.6)"
+            : dimmed()
+              ? "var(--tree-dim-opacity, 0.38)"
+              : "1",
+          "font-size": "var(--tree-font-size, 12px)",
           cursor: "pointer",
         }}
       >
         <div
+          class="solid-tree-row-content"
           style={{
             display: "flex",
             "align-items": "center",
@@ -194,19 +212,22 @@ const TreeRenderNode: Component<{
                 e.stopPropagation();
                 handleToggle(e);
               }}
-              style={{ "margin-right": "4px" }}
+              style={{ "margin-right": "var(--tree-chevron-gap, 4px)" }}
             />
           </Show>
           <Show when={!hasChildren() && !isAction()}>
-            <span style="display:inline-block; width:16px;" />
+            <span class="solid-tree-spacer" style="display:inline-block; width:16px;" />
           </Show>
 
           <Show when={props.node.iconLeft}>
-            <span style="flex-shrink: 0;">{props.node.iconLeft}</span>
+            <span class="solid-tree-icon-left" style="flex-shrink: 0; margin-right: var(--tree-icon-left-gap, 0px);">
+              {props.node.iconLeft}
+            </span>
           </Show>
 
           <span
-            style={`flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; ${props.depth === 0 && hasChildren() ? "font-weight:700;" : ""}`}
+            class="solid-tree-label"
+            style={`flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; ${props.depth === 0 && hasChildren() ? "font-weight:var(--tree-group-weight, 700);" : ""}`}
           >
             <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               <Show
@@ -217,13 +238,19 @@ const TreeRenderNode: Component<{
               </Show>
             </span>
             <Show when={props.node.count !== undefined}>
-              <span style="opacity: 0.5; margin-left: 4px; font-weight: 400; flex-shrink: 0;">
+              <span
+                class="solid-tree-count"
+                style="opacity: var(--tree-count-opacity, 0.5); margin-left: var(--tree-count-gap, 4px); font-weight: 400; flex-shrink: 0;"
+              >
                 ({props.node.count})
               </span>
             </Show>
           </span>
           <Show when={props.node.iconRight}>
-            <span style="margin-left: 6px; flex-shrink: 0; font-size: 11px;">
+            <span
+              class="solid-tree-icon-right"
+              style="margin-left: var(--tree-icon-right-gap, 6px); flex-shrink: 0; font-size: var(--tree-icon-right-size, 11px);"
+            >
               {props.node.iconRight}
             </span>
           </Show>
@@ -232,7 +259,7 @@ const TreeRenderNode: Component<{
         <Show when={props.renderActionNode}>
           <div
             class="solid-tree-action"
-            style="margin-left:8px;"
+            style="display:flex; align-items:center; margin-left:var(--tree-action-gap, 8px);"
             onClick={(e) => e.stopPropagation()}
           >
             {props.renderActionNode!(props.node)}
@@ -355,7 +382,18 @@ export const Tree: Component<TreeProps> = (props) => {
   };
 
   return (
-    <div class="solid-tree-container" style="display:flex; flex-direction:column;">
+    <div
+      class="solid-tree-container"
+      data-searching={view().active ? "" : undefined}
+      style={{
+        display: "flex",
+        "flex-direction": "column",
+        // Only pin these when the prop is given — otherwise leave them unset so a
+        // consumer's --tree-indent-* token (or the inline calc fallback) wins.
+        "--tree-indent-base": props.basePadding != null ? `${props.basePadding}px` : undefined,
+        "--tree-indent-step": props.indentStep != null ? `${props.indentStep}px` : undefined,
+      }}
+    >
       <Show
         when={!(view().active && view().keep === null && view().data.length === 0)}
         fallback={<div class="solid-tree-empty">{props.noMatchesLabel ?? "No matches"}</div>}
