@@ -1,0 +1,121 @@
+# @timotholt/tree — agent guide
+
+SolidJS tree-view component. This file is the complete usage contract. Read it, then use the component without guessing.
+
+## Install
+```jsonc
+"@timotholt/tree": "github:timotholt/solid-tree#v0.2.0"
+```
+Consumer MUST be SolidJS + `vite-plugin-solid`. `solid-js` is a peer dep (single Solid instance). The package ships raw source under the `solid` export condition; consumers compile it. Add `optimizeDeps: { exclude: ['@timotholt/tree'] }` to the consumer's `vite.config`.
+
+## Required setup
+Tree uses two CSS vars. Define them OR import the shipped theme:
+```ts
+import "@timotholt/tree/theme.css";   // sane defaults + row hover/active + highlight
+```
+Or define yourself: `--text-muted` (chevron color), `--border-subtle` (divider color). No other setup.
+
+## Minimal example
+```tsx
+import { createSignal } from "solid-js";
+import { Tree, type TreeNodeData } from "@timotholt/tree";
+import "@timotholt/tree/theme.css";
+
+const data: TreeNodeData[] = [
+  { id: "a", label: "Group A", type: "group",
+    children: [{ id: "a1", label: "Item 1", type: "item" }] },
+];
+
+function Sidebar() {
+  const [sel, setSel] = createSignal<string | null>(null);
+  return <Tree data={data} selectedId={sel()} storageKey="sidebar"
+               onSelect={(n) => setSel(n.id)} />;
+}
+```
+
+## TreeNodeData
+```ts
+{
+  id: string;          // unique across the whole tree; identity for selection + persistence
+  label: string;       // shown text (unless renderLabel overrides)
+  type: string;        // YOUR kind tag; returned in onSelect; component never interprets it
+  children?: TreeNodeData[];
+  iconLeft?: string | JSX.Element;
+  iconRight?: string | JSX.Element;
+  count?: number;      // rendered as "(n)" after label
+  status?: string;     // free-form; useful inside renderActionNode
+  isDivider?: boolean; // renders a horizontal rule instead of a row (dropped during search)
+  variant?: "default" | "action";  // "action" = centered, dimmed, no chevron/indent (for "+ Add" rows)
+  payload?: any;       // arbitrary app data; component never reads it (except a custom matcher you pass)
+}
+```
+
+## Tree props
+```ts
+data: TreeNodeData[];                 // required
+onSelect: (node) => void;             // required; fires on row click
+selectedId?: string | null;          // controlled selection (see rules)
+onToggle?: (id, expanded) => void;    // fires on expand/collapse + once per restored-open node on mount
+
+storageKey?: string;                  // OMIT = no persistence (in-memory). Set = persist expand state.
+storagePrefix?: string;               // default "tree"; localStorage key = `${prefix}-${storageKey}`
+
+renderLabel?: (node) => JSX.Element;  // replace label text
+renderActionNode?: (node) => JSX.Element;  // right-aligned per-row slot (badges/buttons)
+basePadding?: number;                 // default 12; left pad (px) at depth 0
+indentStep?: number;                  // default 12; added px per depth level
+
+searchQuery?: string;                 // active filter; empty/undefined = off
+matcher?: (node, q: string) => boolean;    // default: case-insensitive substring on label
+filterMode?: "prune" | "dim";         // default "prune"
+noMatchesLabel?: string;              // default "No matches" (prune mode, empty result)
+```
+Also exported: `Chevron`, `storage`, type `TreeMatcher`, type `TreeProps`.
+
+## Behavior rules (the non-obvious parts)
+- **Selection is controlled and NOT persisted.** You own `selectedId` in a signal; Tree calls `onSelect`. On reload, selection is whatever you initialize — only expand state persists.
+- **Persistence is opt-in.** No `storageKey` → in-memory only, zero localStorage writes. Give each tree a distinct `storageKey` so multiple trees don't clobber each other.
+- **Only expand/collapse state is persisted** (`Record<nodeId, boolean>`), nothing else.
+- **Row click semantics** (VS Code/Finder): unexpanded → select + expand; expanded & unselected → select only; expanded & selected → collapse. The chevron always just toggles.
+- **Auto-expand to selection:** setting `selectedId` to a nested node expands its ancestors.
+- **`type` is opaque** to the component — it's your routing tag, echoed back in `onSelect`.
+- **`renderActionNode` clicks don't select the row** (slot stops propagation). Return `null`/falsy to skip a row's slot.
+
+## Search / filter
+Set `searchQuery`. Tree owns the structure; you own the match policy.
+```tsx
+const [q, setQ] = createSignal("");
+<input value={q()} onInput={(e) => setQ(e.currentTarget.value)} />   // input + debounce are YOUR job
+<Tree data={data} searchQuery={q()} ... />
+```
+- **`matcher` is the comparator seam.** Default tests `label`. Override to fuzzy/multi-field/read `payload` (which Tree otherwise never inspects):
+  ```tsx
+  matcher={(n, q) => n.label.toLowerCase().includes(q.toLowerCase())
+                  || n.payload?.code?.toLowerCase().includes(q.toLowerCase())}
+  ```
+- **`filterMode`**: `"prune"` drops non-matches but KEEPS matches + their ancestor path; `"dim"` keeps the whole tree and fades non-matches.
+- **Force-expand is an overlay** while a query is active — it reveals matches but NEVER writes saved expand state. Clearing the query restores the tree exactly as the user left it.
+- **Highlight** (`<mark class="solid-tree-mark">`) is automatic ONLY on the default-matcher path. With a custom `matcher` or a `renderLabel`, you do highlighting yourself.
+- **Caveat:** search only sees nodes present in `data` — it cannot match unloaded/lazy children.
+
+## What it does NOT do (don't assume these)
+- No multi-select, no checkboxes. Single selection only.
+- No drag-and-drop, no inline rename, no context menu.
+- No data fetching. You build `data`; for lazy children, fetch in the parent and feed updated `data` (optionally trigger via `onToggle`).
+- No virtualization (fine up to a few thousand nodes; not for 10k+).
+- Does not persist selection, scroll, or filter — only expand state, and only if `storageKey` is set.
+
+## Common patterns
+Badges + delete button:
+```tsx
+renderActionNode={(n) => (
+  <>
+    {n.status === "new" && <span class="badge">new</span>}
+    <button onClick={() => remove(n.id)}>✕</button>
+  </>
+)}
+```
+Two independent trees in one app: give each its own `storageKey` (`"nav"`, `"files"`) — they won't share state.
+
+## Reference
+Live examples gallery (every feature + source): `examples/` → `npm run dev` (`:5180`). Full prose: `README.md`.
