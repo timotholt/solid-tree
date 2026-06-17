@@ -3,7 +3,7 @@
 A small, themeable **SolidJS** tree-view component. Extracted to be reused across
 apps — "build once, use many".
 
-Features: expand/collapse (persisted to `localStorage`), selection with
+Features: expand/collapse (optionally persisted to `localStorage`), selection with
 auto-expand-to-selection, left/right icons, counts, dividers, depth indentation,
 per-node action slots, and custom label rendering.
 
@@ -125,7 +125,7 @@ renderActionNode={(node) => (
 | ------------------ | ------------------------------------- | -------- | ------------------------------------------------ |
 | `data`             | `TreeNodeData[]`                      | —        | tree to render                                   |
 | `selectedId?`      | `string \| null`                      | —        | selected node id; ancestors auto-expand          |
-| `storageKey`       | `string`                              | —        | persistence key (per tree instance)              |
+| `storageKey?`      | `string`                              | —        | **opt-in** persistence. Set a per-tree key to remember expand state across reloads; omit for in-memory only (multiple unkeyed trees won't clobber) |
 | `storagePrefix?`   | `string`                              | `"tree"` | `localStorage` key = `${storagePrefix}-${storageKey}` |
 | `onSelect`         | `(node) => void`                      | —        | row selected                                     |
 | `onToggle?`        | `(id, expanded) => void`              | —        | expand/collapse fired (incl. restored on mount)  |

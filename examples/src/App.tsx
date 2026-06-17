@@ -133,6 +133,17 @@ const ControlledDemo: Component = () => {
   );
 };
 
+// ── 7. No persistence (in-memory) ────────────────────────────────────────────
+const EphemeralDemo: Component = () => {
+  const [sel, setSel] = createSignal<string | null>(null);
+  const data: TreeNodeData[] = [
+    { id: "a", label: "Section A", type: "group", children: [{ id: "a1", label: "Item", type: "item" }] },
+    { id: "b", label: "Section B", type: "group", children: [{ id: "b1", label: "Item", type: "item" }] },
+  ];
+  // No storageKey → nothing written to localStorage; state resets on reload.
+  return <Tree data={data} selectedId={sel()} onSelect={(n) => setSel(n.id)} />;
+};
+
 export const App: Component = () => (
   <main>
     <h1>@timotholt/tree</h1>
@@ -210,6 +221,18 @@ export const App: Component = () => (
 />`}
     >
       <ControlledDemo />
+    </Demo>
+
+    <Demo
+      title="7. No persistence (in-memory)"
+      blurb="Persistence is opt-in. Omit storageKey and expand state is in-memory only — nothing is written to localStorage, and multiple unkeyed trees never clobber each other."
+      code={`<Tree
+  data={data}
+  onSelect={(n) => setSel(n.id)}
+  // no storageKey → resets on reload
+/>`}
+    >
+      <EphemeralDemo />
     </Demo>
   </main>
 );

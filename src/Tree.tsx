@@ -24,8 +24,12 @@ export interface TreeNodeData {
 export interface TreeProps {
   data: TreeNodeData[];
   selectedId?: string | null;
-  /** Identifies this tree's persisted expand/collapse state. */
-  storageKey: string;
+  /**
+   * Opt-in persistence. Provide a key unique to this tree to remember its
+   * expand/collapse state across reloads (localStorage). Omit it and expand
+   * state is in-memory only — so several unkeyed trees never clobber each other.
+   */
+  storageKey?: string;
   /** localStorage key prefix; final key is `${storagePrefix}-${storageKey}`. Default: "tree". */
   storagePrefix?: string;
   onSelect: (node: TreeNodeData) => void;
@@ -172,14 +176,21 @@ const TreeRenderNode: Component<{
 };
 
 export const Tree: Component<TreeProps> = (props) => {
-  const storageKey = () => `${props.storagePrefix ?? "tree"}-${props.storageKey}`;
+  // Persistence is opt-in. With no storageKey, persistKey() is null → we never
+  // touch localStorage and expand state lives only in the signal.
+  const persistKey = () =>
+    props.storageKey == null ? null : `${props.storagePrefix ?? "tree"}-${props.storageKey}`;
 
   const [expanded, setExpanded] = createSignal<Record<string, boolean>>(
-    storage.get(storageKey(), {})
+    (() => {
+      const k = persistKey();
+      return k ? storage.get(k, {}) : {};
+    })()
   );
 
   createEffect(() => {
-    storage.set(storageKey(), expanded());
+    const k = persistKey();
+    if (k) storage.set(k, expanded());
   });
 
   onMount(() => {
