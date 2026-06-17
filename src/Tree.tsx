@@ -1,4 +1,15 @@
-import { Component, For, Show, createSignal, createEffect, createMemo, onMount, JSX } from "solid-js";
+import {
+  Component,
+  For,
+  Show,
+  createSignal,
+  createEffect,
+  createMemo,
+  createContext,
+  useContext,
+  onMount,
+  JSX,
+} from "solid-js";
 import { storage } from "./storage.js";
 import { Chevron } from "./Chevron.jsx";
 
@@ -99,6 +110,23 @@ export interface TreeProps {
   noMatchesLabel?: string;
 }
 
+// Shared per-render state for the recursive rows — carried via context so the
+// recursion only passes what actually varies per node (node + depth). Reactive
+// bits (expanded/selectedId/highlightQuery) are accessors so tracking flows.
+interface TreeCtx {
+  expanded: () => Record<string, boolean>;
+  selectedId: () => string | null | undefined;
+  highlightQuery: () => string | null;
+  isDimmed: (id: string) => boolean;
+  onToggle: (id: string) => void;
+  onSelect: (node: TreeNodeData) => void;
+  renderActionNode?: (node: TreeNodeData) => JSX.Element;
+  renderLabel?: (node: TreeNodeData) => JSX.Element;
+}
+
+const TreeContext = createContext<TreeCtx>();
+const useTree = (): TreeCtx => useContext(TreeContext)!;
+
 // Built-in highlight for the DEFAULT matcher path — wraps the matched substring
 // of the label in <mark>. Skipped when a custom matcher or renderLabel is used
 // (Tree can't know what a custom matcher matched on).
@@ -156,18 +184,9 @@ function collectIds(nodes: TreeNodeData[], acc: Set<string>): Set<string> {
   return acc;
 }
 
-const TreeRenderNode: Component<{
-  node: TreeNodeData;
-  depth: number;
-  expanded: Record<string, boolean>;
-  onToggle: (id: string) => void;
-  selectedId?: string | null;
-  onSelect: (node: TreeNodeData) => void;
-  renderActionNode?: (node: TreeNodeData) => JSX.Element;
-  renderLabel?: (node: TreeNodeData) => JSX.Element;
-  highlightQuery: string | null;
-  isDimmed: (id: string) => boolean;
-}> = (props) => {
+const TreeRenderNode: Component<{ node: TreeNodeData; depth: number }> = (props) => {
+  const ctx = useTree();
+
   if (props.node.isDivider) {
     return (
       <div
@@ -179,19 +198,19 @@ const TreeRenderNode: Component<{
 
   const isAction = () => props.node.variant === "action";
   const hasChildren = () => !!props.node.children && props.node.children.length > 0;
-  const isExpanded = () => props.expanded[props.node.id] || false;
-  const isSelected = () => props.selectedId === props.node.id;
-  const dimmed = () => props.isDimmed(props.node.id);
+  const isExpanded = () => ctx.expanded()[props.node.id] || false;
+  const isSelected = () => ctx.selectedId() === props.node.id;
+  const dimmed = () => ctx.isDimmed(props.node.id);
 
   const handleToggle = (e: Event) => {
     e.stopPropagation();
-    props.onToggle(props.node.id);
+    ctx.onToggle(props.node.id);
   };
 
   return (
     <>
       <div
-        class={`solid-tree-row ${isSelected() ? "active" : ""}`}
+        class="solid-tree-row"
         data-depth={props.depth}
         data-variant={props.node.variant ?? "default"}
         data-selected={isSelected() ? "" : undefined}
@@ -206,7 +225,7 @@ const TreeRenderNode: Component<{
           // users can still collapse without selecting.
           const wasSelected = isSelected();
           const wasExpanded = isExpanded();
-          props.onSelect(props.node);
+          ctx.onSelect(props.node);
           if (hasChildren()) {
             if (!wasExpanded) handleToggle(e);
             else if (wasSelected) handleToggle(e);
@@ -262,10 +281,10 @@ const TreeRenderNode: Component<{
           >
             <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               <Show
-                when={props.renderLabel}
-                fallback={<HighlightedLabel label={props.node.label} query={props.highlightQuery} />}
+                when={ctx.renderLabel}
+                fallback={<HighlightedLabel label={props.node.label} query={ctx.highlightQuery()} />}
               >
-                {props.renderLabel!(props.node)}
+                {ctx.renderLabel!(props.node)}
               </Show>
             </span>
             <Show when={props.node.count !== undefined}>
@@ -287,33 +306,20 @@ const TreeRenderNode: Component<{
           </Show>
         </div>
 
-        <Show when={props.renderActionNode}>
+        <Show when={ctx.renderActionNode}>
           <div
             class="solid-tree-action"
             style={`display:flex; align-items:center; margin-left:${tok("action-gap")};`}
             onClick={(e) => e.stopPropagation()}
           >
-            {props.renderActionNode!(props.node)}
+            {ctx.renderActionNode!(props.node)}
           </div>
         </Show>
       </div>
 
       <Show when={hasChildren() && isExpanded()}>
         <For each={props.node.children}>
-          {(child) => (
-            <TreeRenderNode
-              node={child}
-              depth={props.depth + 1}
-              expanded={props.expanded}
-              onToggle={props.onToggle}
-              selectedId={props.selectedId}
-              onSelect={props.onSelect}
-              renderActionNode={props.renderActionNode}
-              renderLabel={props.renderLabel}
-              highlightQuery={props.highlightQuery}
-              isDimmed={props.isDimmed}
-            />
-          )}
+          {(child) => <TreeRenderNode node={child} depth={props.depth + 1} />}
         </For>
       </Show>
     </>
@@ -410,6 +416,24 @@ export const Tree: Component<TreeProps> = (props) => {
     return v.active && v.keep ? !v.keep.has(id) : false;
   };
 
+  // prune mode + active query + nothing left = empty state.
+  const noMatches = () => view().active && !view().keep && view().data.length === 0;
+
+  const ctx: TreeCtx = {
+    expanded: effectiveExpanded,
+    selectedId: () => props.selectedId,
+    highlightQuery,
+    isDimmed,
+    onToggle: handleToggle,
+    onSelect: (node) => props.onSelect(node),
+    get renderActionNode() {
+      return props.renderActionNode;
+    },
+    get renderLabel() {
+      return props.renderLabel;
+    },
+  };
+
   return (
     <div
       class="solid-tree-container"
@@ -425,27 +449,14 @@ export const Tree: Component<TreeProps> = (props) => {
         ...(props.indentStep != null ? { "--tree-indent-step": `${props.indentStep}px` } : {}),
       }}
     >
-      <Show
-        when={!(view().active && view().keep === null && view().data.length === 0)}
-        fallback={<div class="solid-tree-empty">{props.noMatchesLabel ?? "No matches"}</div>}
-      >
-        <For each={view().data}>
-          {(node) => (
-            <TreeRenderNode
-              node={node}
-              depth={0}
-              expanded={effectiveExpanded()}
-              onToggle={handleToggle}
-              selectedId={props.selectedId}
-              onSelect={props.onSelect}
-              renderActionNode={props.renderActionNode}
-              renderLabel={props.renderLabel}
-              highlightQuery={highlightQuery()}
-              isDimmed={isDimmed}
-            />
-          )}
-        </For>
-      </Show>
+      <TreeContext.Provider value={ctx}>
+        <Show
+          when={!noMatches()}
+          fallback={<div class="solid-tree-empty">{props.noMatchesLabel ?? "No matches"}</div>}
+        >
+          <For each={view().data}>{(node) => <TreeRenderNode node={node} depth={0} />}</For>
+        </Show>
+      </TreeContext.Provider>
     </div>
   );
 };

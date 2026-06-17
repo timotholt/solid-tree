@@ -44,7 +44,6 @@
   background: var(--tree-row-hover-bg, rgba(127, 127, 127, 0.1));
 }
 
-.solid-tree-row.active,
 .solid-tree-row[data-selected] {
   background: var(--tree-row-active-bg, rgba(127, 127, 127, 0.18));
 }
