@@ -153,7 +153,7 @@ Consumers bump the `#vX.Y.Z` ref in their `package.json` and re-`npm install`.
 ```bash
 npm install
 npm run build          # vite lib build + tsc .d.ts
-cd playground && npm install && npm run dev   # live demo on :5180
+cd examples && npm install && npm run dev   # live demo gallery on :5180
 ```
 
 ## License
