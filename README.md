@@ -200,6 +200,11 @@ Tokens: `--tree-font-size` · `--tree-indent-base` · `--tree-indent-step` ·
 > `basePadding`/`indentStep` props still work — when passed they pin
 > `--tree-indent-base/step` for that instance; omit them to theme via the tokens.
 
+> **Contributor note:** the component markup contains no style literals. Every
+> default lives once in `STYLE_DEFAULTS` (`src/Tree.tsx`) / `CHEVRON_DEFAULTS`
+> (`src/Chevron.tsx`), published as `--tree-*-default`; styles read
+> `var(--tree-<name>, var(--tree-<name>-default))`. Change a default in one place.
+
 **State via data-attributes** — every row carries `data-depth`, `data-variant`
 (`default`|`action`), `data-selected`, `data-has-children`, `data-dimmed`; the
 container carries `data-searching`. Target them with plain CSS (no theme.css):
