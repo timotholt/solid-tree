@@ -3,9 +3,11 @@ import { Component, JSX } from "solid-js";
 // Self-contained default layer (single source of style literals for Chevron, so
 // it works standalone too — they're declared on the span itself). Consumers
 // override the un-suffixed token (--tree-chevron-*) on any ancestor.
+// em-relative so the chevron scales with --tree-font-size (the row's font, which
+// is this span's parent font). Defaults equal the old 11px/12px at the 12px anchor.
 const CHEVRON_DEFAULTS = {
-  "--tree-chevron-size-default": "11px",
-  "--tree-chevron-width-default": "12px",
+  "--tree-chevron-size-default": "0.92em",
+  "--tree-chevron-width-default": "1.1em",
   "--tree-chevron-color-default": "var(--text-muted)",
 } satisfies JSX.CSSProperties;
 

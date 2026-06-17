@@ -103,6 +103,8 @@ Every opinionated value is a `--tree-*` CSS var with an inline fallback (so it w
 ```css
 .my-sidebar { --tree-font-size: 14px; --tree-indent-step: 20px; --tree-row-active-bg: #2563eb; }
 ```
+`--tree-font-size` is a master scale knob: spatial metrics (indent/gaps/chevron/spacer) are em-relative to it, so one override resizes the whole tree (divider hairline+margin stay px).
+
 Tokens: `--tree-font-size` `--tree-indent-base` `--tree-indent-step` `--tree-row-pad-x/y` `--tree-row-radius` `--tree-row-color` `--tree-row-hover-bg` `--tree-row-active-bg` `--tree-group-weight` `--tree-count-opacity` `--tree-count-gap` `--tree-icon-left-gap` `--tree-icon-right-gap` `--tree-icon-right-size` `--tree-chevron-size` `--tree-chevron-color`(→`--text-muted`) `--tree-chevron-gap` `--tree-action-gap` `--tree-action-opacity` `--tree-dim-opacity` `--tree-divider-color`(→`--border-subtle`) `--tree-divider-margin` `--tree-mark-bg` `--tree-mark-color` `--tree-user-select`(default `none`; set `text`/`auto` to allow text highlighting on rows).
 
 `basePadding`/`indentStep` props, when passed, pin `--tree-indent-base/step` for that instance; omit them to theme via tokens.

@@ -208,6 +208,11 @@ in as an inline fallback — so the component looks right with **no stylesheet**
 you override any value **without a specificity fight**. Set tokens on
 `.solid-tree-container` or any ancestor (custom properties inherit):
 
+> **`--tree-font-size` is a master scale knob.** Spatial metrics (indent, gaps,
+> chevron, spacer) are `em`-relative to it, so one override resizes the whole tree
+> proportionally — e.g. `--tree-font-size: 14px` scales everything. (The divider
+> hairline + margin stay px on purpose.)
+
 ```css
 .my-sidebar {
   --tree-font-size: 14px;
