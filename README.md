@@ -5,7 +5,8 @@ apps — "build once, use many".
 
 Features: expand/collapse (optionally persisted to `localStorage`), selection with
 auto-expand-to-selection, left/right icons, counts, dividers, depth indentation,
-per-node action slots, and custom label rendering.
+per-node action slots, custom label rendering, and search/filter (prune or dim,
+pluggable matcher, built-in highlight).
 
 `solid-js` is a **peer dependency** — the package ships its raw source under the
 `solid` export condition so your app's `vite-plugin-solid` compiles it, keeping a
@@ -133,8 +134,41 @@ renderActionNode={(node) => (
 | `renderLabel?`     | `(node) => JSX.Element`               | —        | custom label renderer                            |
 | `basePadding?`     | `number`                              | `12`     | left padding (px) at depth 0                     |
 | `indentStep?`      | `number`                              | `12`     | added px per depth level                         |
+| `searchQuery?`     | `string`                              | —        | active filter; empty/undefined = no filtering    |
+| `matcher?`         | `(node, q: string) => boolean`        | label substring | hit policy (see Search below)             |
+| `filterMode?`      | `"prune" \| "dim"`                    | `"prune"`| prune drops non-matches; dim fades them           |
+| `noMatchesLabel?`  | `string`                              | `"No matches"` | shown (prune) when a query yields nothing   |
 
-Also exported: `Chevron` (the ▶/▼ toggle) and `storage` (the localStorage helper).
+Also exported: `Chevron` (the ▶/▼ toggle), `storage` (the localStorage helper), and the `TreeMatcher` type.
+
+## Search & filtering
+
+Set `searchQuery`. Tree owns the **structure** (keeps matches + their ancestor
+path, force-expands to reveal them *without* touching saved expand state, restores
+on clear); you own the **policy** via `matcher`.
+
+```tsx
+const [q, setQ] = createSignal("");
+<input value={q()} onInput={(e) => setQ(e.currentTarget.value)} />
+<Tree data={data} searchQuery={q()} ... />   // default: case-insensitive label substring
+```
+
+- **`matcher`** is the comparator seam — default tests `label`. Override to fuzzy
+  match, span fields, or read `payload` (which Tree never inspects itself):
+  ```tsx
+  matcher={(n, q) =>
+    n.label.toLowerCase().includes(q.toLowerCase()) ||
+    n.payload?.code?.toLowerCase().includes(q.toLowerCase())
+  }
+  ```
+- **`filterMode`** — `"prune"` (default) removes non-matches; `"dim"` keeps the
+  whole tree and lowers opacity on non-matches.
+- **Highlight** — the matched substring is wrapped in `<mark class="solid-tree-mark">`
+  automatically on the default-matcher path. With a custom `matcher` (returns a
+  bool, so Tree can't know *what* matched) or a `renderLabel`, you own highlighting.
+- Debounce and the `<input>` itself stay in your component.
+- **Note:** prune-search assumes the subtree is loaded — it can't match nodes you
+  haven't supplied (e.g. lazy/async children).
 
 ## Cutting a new version
 

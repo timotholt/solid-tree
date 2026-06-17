@@ -144,6 +144,61 @@ const EphemeralDemo: Component = () => {
   return <Tree data={data} selectedId={sel()} onSelect={(n) => setSel(n.id)} />;
 };
 
+// Shared sample tree for the search demos.
+const medTree = (): TreeNodeData[] => [
+  {
+    id: "cardio", label: "Cardiovascular", type: "group",
+    children: [
+      { id: "mi", label: "Myocardial infarction", type: "item", payload: { code: "I21" } },
+      { id: "chf", label: "Heart failure", type: "item", payload: { code: "I50" } },
+      { id: "afib", label: "Atrial fibrillation", type: "item", payload: { code: "I48" } },
+    ],
+  },
+  {
+    id: "resp", label: "Respiratory", type: "group",
+    children: [
+      { id: "copd", label: "COPD", type: "item", payload: { code: "J44" } },
+      { id: "pna", label: "Pneumonia", type: "item", payload: { code: "J18" } },
+    ],
+  },
+  {
+    id: "renal", label: "Renal", type: "group",
+    children: [{ id: "aki", label: "Acute kidney injury", type: "item", payload: { code: "N17" } }],
+  },
+];
+
+// ── 8. Search: prune + highlight (default matcher) ────────────────────────────
+const SearchDemo: Component = () => {
+  const [q, setQ] = createSignal("art");
+  const [sel, setSel] = createSignal<string | null>(null);
+  return (
+    <>
+      <input class="search" placeholder="filter by label…" value={q()} onInput={(e) => setQ(e.currentTarget.value)} />
+      <Tree data={medTree()} searchQuery={q()} selectedId={sel()} storageKey="search" onSelect={(n) => setSel(n.id)} />
+    </>
+  );
+};
+
+// ── 9. Search: dim mode + custom matcher (searches payload.code) ──────────────
+const SearchDimDemo: Component = () => {
+  const [q, setQ] = createSignal("I");
+  const [sel, setSel] = createSignal<string | null>(null);
+  return (
+    <>
+      <input class="search" placeholder="match label OR ICD code…" value={q()} onInput={(e) => setQ(e.currentTarget.value)} />
+      <Tree
+        data={medTree()} searchQuery={q()} selectedId={sel()}
+        storageKey="searchdim" filterMode="dim"
+        matcher={(n, query) => {
+          const s = query.toLowerCase();
+          return n.label.toLowerCase().includes(s) || String(n.payload?.code ?? "").toLowerCase().includes(s);
+        }}
+        onSelect={(n) => setSel(n.id)}
+      />
+    </>
+  );
+};
+
 export const App: Component = () => (
   <main>
     <h1>@timotholt/tree</h1>
@@ -233,6 +288,33 @@ export const App: Component = () => (
 />`}
     >
       <EphemeralDemo />
+    </Demo>
+
+    <Demo
+      title="7b. Search — prune + highlight"
+      blurb="Pass searchQuery. Default mode 'prune' keeps matches + their ancestor path, force-expands to reveal them (without touching saved expand state), and highlights the matched substring. Clear the box to restore the tree exactly as it was."
+      code={`<Tree
+  data={data}
+  searchQuery={q()}        // default matcher: label substring
+  onSelect={...}
+/>`}
+    >
+      <SearchDemo />
+    </Demo>
+
+    <Demo
+      title="7c. Search — dim mode + custom matcher"
+      blurb="filterMode='dim' keeps the whole tree and fades non-matches instead of removing them. A custom matcher is the comparator seam — here it matches label OR payload.code (ICD), so Tree never needs to know payload's shape. Try 'I21' or 'copd'."
+      code={`<Tree
+  searchQuery={q()}
+  filterMode="dim"
+  matcher={(n, q) =>
+    n.label.toLowerCase().includes(q.toLowerCase()) ||
+    n.payload?.code?.toLowerCase().includes(q.toLowerCase())
+  }
+/>`}
+    >
+      <SearchDimDemo />
     </Demo>
   </main>
 );

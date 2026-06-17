@@ -41,3 +41,17 @@
   display: flex;
   align-items: center;
 }
+
+.solid-tree-mark {
+  background: var(--tree-mark-bg, #fde68a);
+  color: var(--tree-mark-color, inherit);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.solid-tree-empty {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
