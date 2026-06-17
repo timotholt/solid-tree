@@ -113,6 +113,18 @@ State for CSS targeting (no stylesheet needed) — rows emit `data-depth`, `data
 ```
 Structural class hooks: `.solid-tree-container/-row/-row-content/-label/-count/-icon-left/-icon-right/-chevron/-spacer/-action/-divider/-mark/-empty`.
 
+## Reactivity & updates (editing nodes elsewhere, e.g. a detail pane)
+Tree never snapshots node content — it reads `node.label`/`count`/`iconRight`/etc. directly. Whether an edit shows up depends on HOW you update `data`. `<For>` is keyed by object REFERENCE (`===`), not id.
+- **Mutate a plain object in place** (no new ref / no signal write) → STALE, nothing updates. Don't.
+- **Immutable replace** (rebuild array + swap the changed node for a NEW object, then `setData(...)`) → that row remounts with new content. Works.
+- **`createStore` + set a field** → fine-grained, just that text updates, no remount. Best.
+
+Expand state and selection are keyed by `id` (Tree's own signal + your `selectedId`), NOT by reference. So title/badge/count edits preserve expand + selection AS LONG AS `id` is stable. Changing a node's `id` drops its expand/selected state.
+
+Gotchas: (1) while a `searchQuery` is active, rendered nodes are `{...node}` COPIES (prune step) — with a store the search memo still re-runs on field changes; with a plain signal you must replace the array. (2) Do NOT share the exact same object between a `createStore` and a live `<For>` element — shared ref corrupts reconciliation; feed the tree a derived/cloned view and mutate through the store.
+
+Recommendation: drive tree + detail pane from one store; pass the tree a DERIVED (cloned, not shared) `data`; update via store setters (or immutable array replace) with stable ids. No package change needed — this is a consumer data-flow contract.
+
 ## What it does NOT do (don't assume these)
 - No multi-select, no checkboxes. Single selection only.
 - No drag-and-drop, no inline rename, no context menu.

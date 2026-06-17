@@ -170,6 +170,37 @@ const [q, setQ] = createSignal("");
 - **Note:** prune-search assumes the subtree is loaded — it can't match nodes you
   haven't supplied (e.g. lazy/async children).
 
+## Reactivity & live updates
+
+Editing a node elsewhere (a detail pane changes a title, removes a badge…) does
+**not** break the tree — but whether the change *appears* depends on how you
+update `data`. Tree reads `node.label`/`count`/`iconRight`/etc. directly and never
+snapshots them; `<For>` is keyed by object **reference** (`===`), not id.
+
+| update style | result |
+| ------------ | ------ |
+| mutate a plain object in place (no new ref / signal write) | **stale — nothing updates.** Don't. |
+| immutable replace (new array + new node object, then `setData`) | that row remounts with new content ✓ |
+| `createStore` + `setStore(path, field, val)` | fine-grained; just that text updates, no remount ✓✓ |
+
+**Expand state and selection are keyed by `id`** (Tree's own signal + your
+`selectedId`), not by reference — so title/badge/count edits keep expand +
+selection intact **as long as `id` is stable**. Changing a node's `id` drops its
+expand/selected state.
+
+Two gotchas:
+- While a `searchQuery` is active, rendered nodes are `{...node}` **copies** (the
+  prune step). With a store the search memo still recomputes on field changes;
+  with a plain signal you must replace the array to retrigger.
+- Don't share the **exact same object** between a `createStore` and a live `<For>`
+  element — a shared reference corrupts reconciliation. Feed the tree a
+  derived/cloned view and mutate through the store.
+
+**Recommendation:** drive the tree and the detail pane from one store; pass the
+tree a **derived (cloned, not shared)** `data`; update via store setters (or
+immutable array replace) with **stable ids**. Nothing to change in the package —
+this is a consumer-side data-flow contract.
+
 ## Theming
 
 Every opinionated value is a `--tree-*` CSS custom property with its default baked
