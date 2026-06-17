@@ -1,0 +1,17 @@
+{
+  "name": "solid-tree-playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@timotholt/tree": "file:..",
+    "solid-js": "^1.9.11"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vite-plugin-solid": "^2.11.0"
+  }
+}
