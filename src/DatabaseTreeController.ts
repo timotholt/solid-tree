@@ -1,4 +1,4 @@
-import { onMount, onCleanup } from "solid-js";
+import { createEffect, onMount, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
 import { QueryClient, createQuery } from "@tanstack/solid-query";
 import { type TreeNodeData, type TreeSource, type TreeChange } from "./types.js";
@@ -136,6 +136,20 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
       if (expanded) void loadChildren(id);
       opts.onToggle?.(id, expanded);
     },
+  });
+
+  // Self-heal: any node that is expanded + expandable + not-yet-loaded gets loaded.
+  // Covers the race where expand() ran before the node was expandable (e.g. a leaf that
+  // just gained its first child via realtime) — onToggle already fired and bailed, so
+  // without this the row would sit on a stuck "Loading…" placeholder.
+  createEffect(() => {
+    const exp = core.expandedIds();
+    const tree = data();
+    for (const id in exp) {
+      if (!exp[id] || childrenStore[id] || loading[id]) continue;
+      const node = findNode(tree, id);
+      if (node && expandable(node)) void loadChildren(id);
+    }
   });
 
   return {
