@@ -1,36 +1,31 @@
 // Collaborative outline (?outline) — two real Supabase sessions edit a SHARED, MUTABLE
 // tree. Add / rename / remove via SECURITY DEFINER RPCs; the structure syncs live across
-// both columns. An outline is small, so we FULL-LOAD it (one select → nested tree) instead
-// of lazy-loading — that way children are known, so leaves correctly show NO chevron, and
-// a node that gains its first child correctly grows one. Realtime: any change → refetch +
-// rebuild. Driven by a base createTreeController over the in-memory tree. Mount via /?outline.
+// both columns. Genuinely LAZY (createDatabaseTreeController — children fetched on expand,
+// no full load): leaf-vs-parent comes from a stored child_count column, so leaves show NO
+// chevron without loading them, and a node that gains/loses a child flips its chevron LIVE
+// (the count rides the realtime UPDATE). Mount via /?outline.
 //
 // Prereq: `npm run setup` in ../../supabase (adds scratch_outline + RPCs) + .env set.
-import { createSignal, onCleanup, onMount, Show, type Component } from "solid-js";
+import { createSignal, onMount, Show, type Component } from "solid-js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { VirtualTree, createTreeController } from "@timotholt/solid-tree/virtual";
-import type { TreeNodeData } from "@timotholt/solid-tree/virtual";
+import { DatabaseTree, createDatabaseTreeController } from "@timotholt/solid-tree/database";
+import { supabaseSource } from "@timotholt/solid-tree/supabase";
+import type { TreeNodeData } from "@timotholt/solid-tree/database";
 import "@timotholt/solid-tree/theme.css";
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const TABLE = "scratch_outline";
 
-interface Row { id: string; parent_id: string | null; label: string }
-
-// Flat rows → nested TreeNodeData. Leaves get NO children key, so no chevron.
-function buildTree(rows: Row[]): TreeNodeData[] {
-  const byId = new Map<string, TreeNodeData & { children: TreeNodeData[] }>();
-  for (const r of rows) byId.set(r.id, { id: r.id, label: r.label, type: "node", children: [] });
-  const roots: TreeNodeData[] = [];
-  for (const r of rows) {
-    const node = byId.get(r.id)!;
-    const parent = r.parent_id ? byId.get(r.parent_id) : null;
-    (parent ? parent.children : roots).push(node);
-  }
-  for (const n of byId.values()) if (n.children.length === 0) delete (n as TreeNodeData).children;
-  return roots;
-}
+// leaf-ness from the stored child_count → no chevron on leaves, no need to fetch.
+// A realtime-inserted row has child_count 0 → leaf; a parent UPDATE carries the new
+// count → its chevron flips live.
+const toNode = (row: Record<string, any>): TreeNodeData => ({
+  id: row.id,
+  label: row.label,
+  type: "node",
+  payload: { leaf: Number(row.child_count ?? 0) === 0 },
+});
 
 const Column: Component<{ email: string; password: string; name: string; accent: string }> = (props) => {
   const client: SupabaseClient = createClient(URL, ANON, {
@@ -59,47 +54,40 @@ const Column: Component<{ email: string; password: string; name: string; accent:
 };
 
 const OutlineColumn: Component<{ client: SupabaseClient; accent: string }> = (props) => {
-  const [data, setData] = createSignal<TreeNodeData[]>([]);
   const [draft, setDraft] = createSignal("");
   const [domRows, setDomRows] = createSignal(0);
-  const tree = createTreeController({ data: () => data() });
 
-  const refetch = async () => {
-    const { data: rows } = await props.client
-      .from(TABLE).select("id,parent_id,label,created_at").order("created_at");
-    setData(buildTree((rows ?? []) as Row[]));
-  };
-
-  onMount(() => {
-    void refetch();
-    // One channel; any change to the shared table → refetch + rebuild (table is tiny).
-    const ch = props.client
-      .channel(`outline:${props.accent}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, () => void refetch())
-      .subscribe();
-    onCleanup(() => void props.client.removeChannel(ch));
+  // Lazy DB controller over the Supabase outline (children fetched on expand). Its
+  // realtime subscription patches INSERT/UPDATE/DELETE — no manual refetch.
+  const tree = createDatabaseTreeController({
+    source: supabaseSource({
+      client: props.client,
+      table: TABLE,
+      toNode,
+      parentColumn: "parent_id",
+      orderBy: { column: "created_at" },
+    }),
   });
 
   const sel = () => tree.selectedId();
   const add = async (parent: string | null) => {
     await props.client.rpc("outline_add", { _parent: parent, _label: draft() });
     setDraft("");
-    await refetch();
-    if (parent) tree.expand(parent); // reveal the new child
+    // If the parent is already expanded, the realtime INSERT appends it live. If it was
+    // a leaf, the parent's child_count UPDATE grows its chevron live — expand to load.
+    if (parent) tree.expand(parent);
   };
   const remove = async () => {
     const id = sel();
     if (!id) return;
     await props.client.rpc("outline_remove", { _id: id });
     tree.deselect();
-    await refetch();
   };
   const rename = async () => {
     const id = sel();
     if (id && draft().trim()) {
       await props.client.rpc("outline_rename", { _id: id, _label: draft() });
       setDraft("");
-      await refetch();
     }
   };
 
@@ -122,7 +110,7 @@ const OutlineColumn: Component<{ client: SupabaseClient; accent: string }> = (pr
         <span style="opacity:.6;font-size:12px;align-self:center">{domRows()} in DOM</span>
       </div>
       <div style={`height:360px;border:2px solid ${props.accent};border-radius:8px;--text-muted:#8a8f98;--border-subtle:rgba(0,0,0,.12);--tree-row-active-bg:${props.accent}22`}>
-        <VirtualTree tree={tree} onRangeChange={(s, e) => setDomRows(e - s + 1)} />
+        <DatabaseTree tree={tree} onRangeChange={(s, e) => setDomRows(e - s + 1)} />
       </div>
     </>
   );
@@ -132,14 +120,15 @@ export const OutlineDemo: Component = () => {
   const configured = URL && ANON && !ANON.includes("paste-anon");
   return (
     <div style="font-family:system-ui;padding:16px;max-width:760px">
-      <h2>Collaborative outline — live insert / remove</h2>
+      <h2>Collaborative outline — lazy, live insert / remove</h2>
       <p style="font-size:13px;color:#555">
         Two real Supabase sessions on a shared <code>scratch_outline</code> table. Type a
         label, <strong>+ root</strong> or select a node and <strong>+ child</strong> /{" "}
         <strong>rename</strong> / <strong>remove</strong>. Mutations go through SECURITY
-        DEFINER RPCs (RLS denies direct writes); every change syncs live across both columns
-        via Realtime. Full-loaded so leaves show no chevron. (Add a root on the left → watch
-        it appear on the right.)
+        DEFINER RPCs (RLS denies direct writes); changes sync live via Realtime. Genuinely
+        <strong> lazy</strong> — children load on expand — yet leaves show no chevron (from a
+        stored <code>child_count</code> that flips a node's chevron live as children come and
+        go). Add a root on the left → watch it appear on the right.
       </p>
       <Show
         when={configured}

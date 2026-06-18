@@ -16,6 +16,28 @@ create table if not exists public.scratch_outline (
 );
 create index if not exists scratch_outline_parent_idx on public.scratch_outline(parent_id);
 
+-- Stored child count so a LAZY tree knows leaf-vs-parent WITHOUT loading children
+-- (leaf = child_count = 0). Maintained by a trigger; because it's a real column it
+-- rides realtime UPDATE payloads, so adding/removing a child flips the parent's chevron
+-- LIVE on every client. This is the canonical lazy-tree pattern (vs. guessing).
+alter table public.scratch_outline add column if not exists child_count int not null default 0;
+
+create or replace function public.scratch_outline_count() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' and new.parent_id is not null then
+    update scratch_outline set child_count = child_count + 1 where id = new.parent_id;
+  elsif tg_op = 'DELETE' and old.parent_id is not null then
+    update scratch_outline set child_count = child_count - 1 where id = old.parent_id;
+  end if;
+  return null;
+end $$;
+
+drop trigger if exists scratch_outline_count_trg on public.scratch_outline;
+create trigger scratch_outline_count_trg
+  after insert or delete on public.scratch_outline
+  for each row execute function public.scratch_outline_count();
+
 -- Seed a tiny starter outline (definer, so it works without insert RLS).
 create or replace function public.outline_seed()
 returns void language plpgsql security definer set search_path = public as $$
