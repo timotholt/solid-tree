@@ -147,7 +147,7 @@ create or replace function public.outline_admin_force_release(_id uuid)
 returns public.scratch_outline language plpgsql security definer set search_path = public as $$
 declare r public.scratch_outline;
 begin
-  if coalesce((auth.jwt() -> 'app_metadata' ->> 'app_admin')::boolean, false) is not true then
+  if coalesce(auth.jwt() -> 'app_metadata' ->> 'app_admin', 'false') <> 'true' then
     raise exception 'not authorized: admin only' using errcode = '42501';
   end if;
   update scratch_outline set locked_by = null, locked_at = null where id = _id returning * into r;

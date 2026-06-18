@@ -113,7 +113,7 @@ returns public.scratch_lock_demo
 language plpgsql security definer set search_path = public as $$
 declare r public.scratch_lock_demo;
 begin
-  if coalesce((auth.jwt() -> 'app_metadata' ->> 'app_admin')::boolean, false) is not true then
+  if coalesce(auth.jwt() -> 'app_metadata' ->> 'app_admin', 'false') <> 'true' then
     raise exception 'not authorized: admin only' using errcode = '42501';
   end if;
   update scratch_lock_demo set locked_by = null, locked_at = null
@@ -163,15 +163,10 @@ drop policy if exists scratch_update on public.scratch_lock_demo;
 create policy scratch_read on public.scratch_lock_demo
   for select to authenticated using (true);
 
--- Direct UPDATE: holder-only, and lock columns must stay yours. This is a
--- belt-and-suspenders policy — real writes go through the definer RPCs, which
--- bypass RLS. A direct client UPDATE on a row you don't hold is invisible
--- (using-clause fails on the OLD row) => can't steal a free or held lock.
-create policy scratch_update on public.scratch_lock_demo
-  for update to authenticated
-  using (locked_by = auth.uid())
-  with check (locked_by = auth.uid());
--- (no INSERT / DELETE policies => anon and authed direct insert/delete denied)
+-- NO direct INSERT/UPDATE/DELETE policies → ALL writes go through the SECURITY DEFINER
+-- RPCs (which bypass RLS). This is stricter than a holder-only UPDATE policy: even the
+-- lock HOLDER can't directly write balance or forge locked_at to extend their own TTL —
+-- balance changes only via bump_balance, lock columns only via acquire/touch/release.
 
 -- 6. Realtime — publish row changes so collaborators see locks live ───────────
 do $$

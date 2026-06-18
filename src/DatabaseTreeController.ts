@@ -51,6 +51,11 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
   // Lazily-loaded children keyed by parent id (reactive → re-assembles the tree).
   const [childrenStore, setChildren] = createStore<Record<string, TreeNodeData[]>>({});
   const [loading, setLoading] = createStore<Record<string, boolean>>({});
+  // Non-reactive guards: in-flight (no double-fetch) + failed (don't auto-retry a rejected
+  // load — otherwise the self-heal effect would hammer the network forever). Read by the
+  // effect WITHOUT subscribing, so the loading-store writes don't re-trigger it.
+  const inFlight = new Set<string>();
+  const failed = new Set<string>();
 
   const expandable = (node: TreeNodeData) =>
     !!opts.source.getChildren && node.payload?.leaf !== true && node.type !== LOADING_TYPE;
@@ -69,9 +74,11 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
 
   // ── lazy load ────────────────────────────────────────────────────────────────
   const loadChildren = async (id: string) => {
-    if (!opts.source.getChildren || childrenStore[id]) return;
+    if (!opts.source.getChildren || childrenStore[id] || inFlight.has(id)) return;
     const node = findNode(data(), id);
     if (!node || !expandable(node)) return;
+    inFlight.add(id);
+    failed.delete(id);
     setLoading(id, true);
     try {
       const kids = await client.fetchQuery({
@@ -79,13 +86,17 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
         queryFn: () => opts.source.getChildren!(node),
       });
       setChildren(id, kids);
+    } catch {
+      failed.add(id); // leave the placeholder; a manual re-expand or reloadChildren retries
     } finally {
+      inFlight.delete(id);
       setLoading(id, false);
     }
   };
 
   const reloadChildren = async (id: string) => {
     client.removeQueries({ queryKey: ["solid-tree-children", id] });
+    failed.delete(id);
     setChildren(id, undefined as unknown as TreeNodeData[]);
     await loadChildren(id);
   };
@@ -146,7 +157,9 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
     const exp = core.expandedIds();
     const tree = data();
     for (const id in exp) {
-      if (!exp[id] || childrenStore[id] || loading[id]) continue;
+      // inFlight/failed are plain Sets (non-reactive) so this effect re-runs only on
+      // expandedIds/data/childrenStore changes — never on the loading-store toggle.
+      if (!exp[id] || childrenStore[id] || inFlight.has(id) || failed.has(id)) continue;
       const node = findNode(tree, id);
       if (node && expandable(node)) void loadChildren(id);
     }

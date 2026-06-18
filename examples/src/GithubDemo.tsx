@@ -26,16 +26,22 @@ const sortEntries = (a: GhEntry, b: GhEntry) =>
   a.type === b.type ? a.name.localeCompare(b.name) : a.type === "dir" ? -1 : 1;
 
 function makeSource(repo: string): TreeSource {
+  const errNode = (path: string, why: string): TreeNodeData[] => [
+    { id: `__err:${path}`, label: `⚠ ${why}`, type: "error", payload: { leaf: true } },
+  ];
   const fetchPath = async (path: string): Promise<TreeNodeData[]> => {
     const url = `https://api.github.com/repos/${repo}/contents/${path}`;
-    const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
-    if (!res.ok) {
-      const why = res.status === 403 ? "rate limit hit (60/hr unauthenticated)" : `HTTP ${res.status}`;
-      return [{ id: `__err:${path}`, label: `⚠ ${why}`, type: "error", payload: { leaf: true } }];
+    try {
+      const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
+      if (!res.ok) {
+        return errNode(path, res.status === 403 ? "rate limit hit (60/hr unauthenticated)" : `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as GhEntry[];
+      if (!Array.isArray(data)) return [];
+      return data.sort(sortEntries).map(toNode);
+    } catch (e) {
+      return errNode(path, `network error: ${(e as Error).message}`); // offline / DNS / CORS
     }
-    const data = (await res.json()) as GhEntry[];
-    if (!Array.isArray(data)) return [];
-    return data.sort(sortEntries).map(toNode);
   };
   return {
     getRoots: () => fetchPath(""),

@@ -32,15 +32,18 @@ Deno.serve(async (req) => {
   // 1. Identify + authorize the caller from their JWT (verified by GoTrue).
   const { data: who, error: whoErr } = await admin.auth.getUser(token);
   if (whoErr || !who.user) return json({ error: "invalid token" }, 401);
-  const isAdmin =
-    who.user.app_metadata?.app_admin === true ||
-    who.user.app_metadata?.role === "admin";
+  const isAdmin = who.user.app_metadata?.app_admin === true; // same gate as the RPC
   if (!isAdmin) return json({ error: "not an admin" }, 403);
 
-  // 2. Do the override with the service-role client (bypasses RLS).
+  // 2. Override with the service-role client (bypasses RLS). Capture the CURRENT holder
+  //    before clearing, so session-revoke can target the actual holder (not a client hint).
   const body = await req.json().catch(() => ({}));
   const id = body?.id as string | undefined;
   if (!id) return json({ error: "body.id required" }, 400);
+
+  const { data: before } = await admin
+    .from("scratch_lock_demo").select("locked_by").eq("id", id).maybeSingle();
+  const holder = (before as { locked_by: string | null } | null)?.locked_by ?? null;
 
   const { data: row, error } = await admin
     .from("scratch_lock_demo")
@@ -50,16 +53,15 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (error) return json({ error: error.message }, 500);
 
-  // 3. Optionally revoke the (former) holder's sessions. NOTE: this kills their
-  //    refresh tokens immediately, but an already-issued access token stays valid
-  //    until it expires (JWTs are stateless). That's why the lock TTL exists.
+  // 3. Optionally revoke the (former) holder's sessions. Kills refresh tokens immediately,
+  //    but an already-issued access token stays valid until exp (stateless JWT) — hence TTL.
   let revoked: string | null = null;
-  if (body?.revokeSessions && body?.holderId) {
-    await admin.auth.admin.signOut(body.holderId as string).catch(() => {});
-    revoked = body.holderId as string;
+  if (body?.revokeSessions && holder) {
+    const { error: soErr } = await admin.auth.admin.signOut(holder);
+    if (!soErr) revoked = holder;
   }
 
-  return json({ ok: true, released: id, row, revoked });
+  return json({ ok: true, released: id, holder, revoked });
 });
 
 function json(b: unknown, status = 200) {

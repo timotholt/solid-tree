@@ -30,14 +30,17 @@ Deno.serve(async (req) => {
   // 1. Authorize the caller from their verified JWT.
   const { data: who, error: whoErr } = await admin.auth.getUser(token);
   if (whoErr || !who.user) return json({ error: "invalid token" }, 401);
-  const isAdmin =
-    who.user.app_metadata?.app_admin === true || who.user.app_metadata?.role === "admin";
+  const isAdmin = who.user.app_metadata?.app_admin === true; // same gate as the RPC
   if (!isAdmin) return json({ error: "not an admin" }, 403);
 
-  // 2. Clear the lock with the service-role client (bypasses RLS).
+  // 2. Capture the CURRENT holder before clearing, then clear with the service-role client.
   const body = await req.json().catch(() => ({}));
   const id = body?.id as string | undefined;
   if (!id) return json({ error: "body.id required" }, 400);
+
+  const { data: before } = await admin
+    .from("scratch_outline").select("locked_by").eq("id", id).maybeSingle();
+  const holder = (before as { locked_by: string | null } | null)?.locked_by ?? null;
 
   const { data: row, error } = await admin
     .from("scratch_outline")
@@ -50,12 +53,12 @@ Deno.serve(async (req) => {
   // 3. Optionally revoke the (former) holder's sessions. Kills refresh tokens; an already
   //    issued access token lives until exp (JWTs are stateless) — which is why the TTL exists.
   let revoked: string | null = null;
-  if (body?.revokeSessions && body?.holderId) {
-    await admin.auth.admin.signOut(body.holderId as string).catch(() => {});
-    revoked = body.holderId as string;
+  if (body?.revokeSessions && holder) {
+    const { error: soErr } = await admin.auth.admin.signOut(holder);
+    if (!soErr) revoked = holder;
   }
 
-  return json({ ok: true, released: id, row, revoked });
+  return json({ ok: true, released: id, holder, revoked });
 });
 
 function json(b: unknown, status = 200) {

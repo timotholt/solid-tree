@@ -1,4 +1,4 @@
-import { createSignal, createEffect, createMemo, untrack, onMount, getOwner, type Accessor } from "solid-js";
+import { createSignal, createEffect, createMemo, untrack, on, onMount, getOwner, type Accessor } from "solid-js";
 import { storage } from "./storage.js";
 import { type TreeCtx } from "./context.js";
 import { type TreeNodeData, type TreeMatcher, type FlatRow } from "./types.js";
@@ -141,11 +141,12 @@ export function createTreeController(opts: TreeControllerOptions): TreeControlle
   const [searchSig, setSearchSig] = createSignal("");
   const query = () => (opts.searchQuery ? opts.searchQuery() ?? "" : searchSig()).trim();
 
-  // Auto-expand ancestors to reveal the current selection. Tracks ONLY selectedId +
-  // data; expand reads/writes are untracked so a manual collapse never snaps it back.
-  createEffect(() => {
-    const id = selectedId();
-    const nodes = data();
+  // Auto-expand ancestors to reveal the current selection. Tracks ONLY selectedId (via
+  // `on`); data is read untracked. So it fires when the selection changes — NOT on every
+  // data churn (e.g. a realtime patch), which would otherwise re-open a branch the user
+  // just manually collapsed.
+  createEffect(on(selectedId, (id) => {
+    const nodes = untrack(data);
     if (!id || !nodes) return;
     const findAndExpand = (arr: TreeNodeData[], target: string): boolean => {
       for (const node of arr) {
@@ -161,7 +162,7 @@ export function createTreeController(opts: TreeControllerOptions): TreeControlle
       return false;
     };
     untrack(() => findAndExpand(nodes, id));
-  });
+  }));
 
   const handleToggle = (id: string) => {
     const newState = !expanded()[id];
