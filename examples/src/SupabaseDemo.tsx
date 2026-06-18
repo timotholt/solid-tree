@@ -57,6 +57,10 @@ const Column: Component<{ email: string; password: string; name: string; accent:
       return;
     }
     setUid(data.user?.id ?? null);
+    // Clean slate: drop any lock this user still held from a previous session
+    // (a refresh loses client-side lock state but the DB row stays locked).
+    await lock.releaseAll();
+    drop();
     setReady(true);
 
     const { count } = await client.from(TABLE).select("*", { count: "exact", head: true });
@@ -104,6 +108,7 @@ const Column: Component<{ email: string; password: string; name: string; accent:
             client={client}
             table={TABLE}
             toNode={toNode}
+            orderBy={{ column: "label" }}
             selectedId={cursor()}
             onRangeChange={(start, end) => setDomRows(end - start + 1)}
             onSelect={async (n) => {

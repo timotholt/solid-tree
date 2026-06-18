@@ -29,6 +29,8 @@ end $$;
 
 -- 3. Lock RPCs — SECURITY DEFINER, keyed on auth.uid() (unforgeable) ──────────
 -- Acquire: succeeds if free / expired / already mine. Atomic. Returns row or null.
+-- One editor → one lock: on success, release any OTHER row this user still holds
+-- (so a refresh — which loses client-side lock state — can't strand the old lock).
 create or replace function public.acquire_lock(_id uuid)
 returns public.scratch_lock_demo
 language plpgsql security definer set search_path = public as $$
@@ -41,6 +43,10 @@ begin
           or locked_by = auth.uid()
           or locked_at < now() - interval '2 minutes')
   returning * into r;
+  if r.id is not null then
+    update scratch_lock_demo set locked_by = null, locked_at = null
+     where locked_by = auth.uid() and id <> _id;
+  end if;
   return r;   -- null row => held by someone else (refused)
 end $$;
 
@@ -56,6 +62,13 @@ create or replace function public.release_lock(_id uuid)
 returns void language sql security definer set search_path = public as $$
   update scratch_lock_demo set locked_by = null, locked_at = null
    where id = _id and locked_by = auth.uid();
+$$;
+
+-- Release every lock this user holds — clean slate on page load / sign-out.
+create or replace function public.release_all_locks()
+returns void language sql security definer set search_path = public as $$
+  update scratch_lock_demo set locked_by = null, locked_at = null
+   where locked_by = auth.uid();
 $$;
 
 -- Edit data: holder-only money move (proves RLS gates edits, not just UI).
@@ -77,13 +90,13 @@ end $$;
 -- grant. Revoke from anon explicitly, then grant only to authenticated.
 revoke all on function
   public.acquire_lock(uuid), public.touch_lock(uuid),
-  public.release_lock(uuid), public.bump_balance(uuid, numeric),
-  public.scratch_seed(int)
+  public.release_lock(uuid), public.release_all_locks(),
+  public.bump_balance(uuid, numeric), public.scratch_seed(int)
   from public, anon;
 grant execute on function
   public.acquire_lock(uuid), public.touch_lock(uuid),
-  public.release_lock(uuid), public.bump_balance(uuid, numeric),
-  public.scratch_seed(int)
+  public.release_lock(uuid), public.release_all_locks(),
+  public.bump_balance(uuid, numeric), public.scratch_seed(int)
   to authenticated;
 
 -- 5. RLS — read for all authed; NO direct writes (lock + data via RPC only) ────

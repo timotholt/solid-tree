@@ -12,6 +12,7 @@ export interface SupabaseLockConfig {
   /** RPC names — override if yours differ. */
   acquireFn?: string; // default "acquire_lock"
   releaseFn?: string; // default "release_lock"
+  releaseAllFn?: string; // default "release_all_locks"
   touchFn?: string; // default "touch_lock"
   /** The id argument name the RPCs take. Default "_id". */
   idArg?: string;
@@ -26,6 +27,8 @@ export interface SupabaseLock {
   acquire(id: string): Promise<boolean>;
   /** Release whatever we currently hold. */
   release(): Promise<void>;
+  /** Release every lock this user holds server-side (clean slate on mount/sign-out). */
+  releaseAll(): Promise<void>;
   /** The id we currently hold, or null. */
   held(): string | null;
   /**
@@ -40,6 +43,7 @@ export interface SupabaseLock {
 export function createSupabaseLock(cfg: SupabaseLockConfig): SupabaseLock {
   const acquireFn = cfg.acquireFn ?? "acquire_lock";
   const releaseFn = cfg.releaseFn ?? "release_lock";
+  const releaseAllFn = cfg.releaseAllFn ?? "release_all_locks";
   const touchFn = cfg.touchFn ?? "touch_lock";
   const idArg = cfg.idArg ?? "_id";
   const beatMs = cfg.heartbeatMs ?? 30_000;
@@ -98,6 +102,12 @@ export function createSupabaseLock(cfg: SupabaseLockConfig): SupabaseLock {
       heldId = null;
       stopBeat();
       if (id) await cfg.client.rpc(releaseFn, { [idArg]: id });
+    },
+
+    async releaseAll() {
+      heldId = null;
+      stopBeat();
+      await cfg.client.rpc(releaseAllFn);
     },
 
     observe(row) {
