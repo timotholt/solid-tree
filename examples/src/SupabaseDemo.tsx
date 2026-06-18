@@ -29,8 +29,9 @@ const toNode = (row: Record<string, any>): TreeNodeData => {
 // Sign-in shell: builds the controller only AFTER auth (so the roots query runs
 // authenticated under RLS), then renders ColumnInner.
 const Column: Component<{ email: string; password: string; name: string; accent: string }> = (props) => {
+  // Distinct storageKey per column so the two clients' auth sessions don't collide.
   const client: SupabaseClient = createClient(URL, ANON, {
-    auth: { persistSession: false, autoRefreshToken: true },
+    auth: { persistSession: false, autoRefreshToken: true, storageKey: `sb-bank-${props.name}` },
   });
   const [ready, setReady] = createSignal(false);
   const [err, setErr] = createSignal<string | null>(null);
