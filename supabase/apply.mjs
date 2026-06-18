@@ -14,7 +14,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 config({ path: join(HERE, ".env") });
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
-const SEED_ROWS = Math.max(1, Number(process.env.SEED_ROWS ?? 200) | 0);
+const SEED_ROWS = Math.max(1, Number(process.env.SEED_ROWS ?? 2000) | 0);
 const migration = readFileSync(join(HERE, "migrations", "0001_scratch_lock.sql"), "utf8");
 
 try {

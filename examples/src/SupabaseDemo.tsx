@@ -32,12 +32,18 @@ const Column: Component<{ email: string; password: string; name: string; accent:
   const [uid, setUid] = createSignal<string | null>(null);
   const [cursor, setCursor] = createSignal<string | null>(null);
   const [held, setHeld] = createSignal<string | null>(null);
+  const [heldLabel, setHeldLabel] = createSignal<string | null>(null);
   const [domRows, setDomRows] = createSignal(0);
+  const [total, setTotal] = createSignal(0);
 
+  const drop = () => {
+    setHeld(null);
+    setHeldLabel(null);
+  };
   const lock = createSupabaseLock({
     client,
     onLockLost: (id) => {
-      if (held() === id) setHeld(null);
+      if (held() === id) drop();
     },
   });
 
@@ -52,6 +58,9 @@ const Column: Component<{ email: string; password: string; name: string; accent:
     }
     setUid(data.user?.id ?? null);
     setReady(true);
+
+    const { count } = await client.from(TABLE).select("*", { count: "exact", head: true });
+    setTotal(count ?? 0);
 
     // Side channel so the lock learns when our held row is expired/reassigned.
     const ch = client
@@ -70,7 +79,7 @@ const Column: Component<{ email: string; password: string; name: string; accent:
   };
   const release = async () => {
     await lock.release();
-    setHeld(null);
+    drop();
   };
 
   return (
@@ -79,12 +88,15 @@ const Column: Component<{ email: string; password: string; name: string; accent:
       <Show when={err()}>
         <p style="color:#b91c1c;font-size:13px">sign-in failed: {err()} — did you run setup + set .env?</p>
       </Show>
-      <div style="display:flex;gap:6px;margin-bottom:8px;font-size:13px;align-items:center">
-        <span style="opacity:.7">{domRows()} in DOM · holding {held() ?? "nothing"}</span>
-        <span style="flex:1" />
-        <button disabled={!held()} onClick={() => bump(100)}>+ $100</button>
-        <button disabled={!held()} onClick={() => bump(-100)}>− $100</button>
-        <button disabled={!held()} onClick={release}>release</button>
+      <div style="font-size:13px;margin-bottom:8px">
+        <div style="opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px">
+          {domRows()} in DOM / {total()} total · holding {heldLabel() ?? "nothing"}
+        </div>
+        <div style="display:flex;gap:6px">
+          <button disabled={!held()} onClick={() => bump(100)}>+ $100</button>
+          <button disabled={!held()} onClick={() => bump(-100)}>− $100</button>
+          <button disabled={!held()} onClick={release}>release</button>
+        </div>
       </div>
       <div style={`height:380px;border:2px solid ${props.accent};border-radius:8px;--text-muted:#8a8f98;--border-subtle:rgba(0,0,0,.12);--tree-row-active-bg:${props.accent}22`}>
         <Show when={ready()} fallback={<p style="padding:12px;font-size:13px;opacity:.6">signing in…</p>}>
@@ -99,7 +111,12 @@ const Column: Component<{ email: string; password: string; name: string; accent:
               if (lb && lb !== uid()) return; // locked by the other user → not selectable
               const got = await lock.acquire(n.id);
               setCursor(n.id);
-              setHeld(got ? n.id : null);
+              if (got) {
+                setHeld(n.id);
+                setHeldLabel(n.label.split(" — ")[0]); // "Account 0160", not the uuid
+              } else {
+                drop();
+              }
             }}
             renderActionNode={(n) => {
               const lb = n.payload?.lockedBy as string | null;
