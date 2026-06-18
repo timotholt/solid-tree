@@ -1,30 +1,32 @@
 // Collaborative outline (?outline) — two real Supabase sessions edit a SHARED, MUTABLE
-// tree. Add / rename / remove via SECURITY DEFINER RPCs; the structure syncs live across
-// both columns. Genuinely LAZY (createDatabaseTreeController — children fetched on expand,
-// no full load): leaf-vs-parent comes from a stored child_count column, so leaves show NO
-// chevron without loading them, and a node that gains/loses a child flips its chevron LIVE
-// (the count rides the realtime UPDATE). Mount via /?outline.
+// tree, with RECORD LOCKING. Selecting a node acquires its lock (🔒 yours, 👤 someone
+// else's); rename / remove / add-child are server-refused when another user holds it — so
+// a node you're working in can't be renamed or deleted out from under you. Genuinely lazy
+// (createSupabaseTreeController → children fetched on expand; leaf-ness from child_count).
+// Mount via /?outline.
 //
-// Prereq: `npm run setup` in ../../supabase (adds scratch_outline + RPCs) + .env set.
+// Prereq: `npm run setup` in ../../supabase (adds scratch_outline + lock RPCs) + .env set.
 import { createSignal, onMount, Show, type Component } from "solid-js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { DatabaseTree, createDatabaseTreeController } from "@timotholt/solid-tree/database";
-import { supabaseSource } from "@timotholt/solid-tree/supabase";
-import type { TreeNodeData } from "@timotholt/solid-tree/database";
+import { SupabaseTree, createSupabaseTreeController } from "@timotholt/solid-tree/supabase";
+import type { TreeNodeData } from "@timotholt/solid-tree/supabase";
 import "@timotholt/solid-tree/theme.css";
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const TABLE = "scratch_outline";
+const LOCK_RPC = {
+  acquireFn: "outline_lock",
+  releaseFn: "outline_unlock",
+  releaseAllFn: "outline_unlock_all",
+  touchFn: "outline_touch",
+};
 
-// leaf-ness from the stored child_count → no chevron on leaves, no need to fetch.
-// A realtime-inserted row has child_count 0 → leaf; a parent UPDATE carries the new
-// count → its chevron flips live.
 const toNode = (row: Record<string, any>): TreeNodeData => ({
   id: row.id,
   label: row.label,
   type: "node",
-  payload: { leaf: Number(row.child_count ?? 0) === 0 },
+  payload: { leaf: Number(row.child_count ?? 0) === 0, lockedBy: row.locked_by as string | null },
 });
 
 const Column: Component<{ email: string; password: string; name: string; accent: string }> = (props) => {
@@ -33,10 +35,12 @@ const Column: Component<{ email: string; password: string; name: string; accent:
   });
   const [ready, setReady] = createSignal(false);
   const [err, setErr] = createSignal<string | null>(null);
+  const [uid, setUid] = createSignal<string | null>(null);
 
   onMount(async () => {
-    const { error } = await client.auth.signInWithPassword({ email: props.email, password: props.password });
+    const { data, error } = await client.auth.signInWithPassword({ email: props.email, password: props.password });
     if (error) return setErr(error.message);
+    setUid(data.user?.id ?? null);
     setReady(true);
   });
 
@@ -47,47 +51,58 @@ const Column: Component<{ email: string; password: string; name: string; accent:
         <p style="color:#b91c1c;font-size:13px">sign-in failed: {err()} — setup + .env?</p>
       </Show>
       <Show when={ready()} fallback={<p style="font-size:13px;opacity:.6">signing in…</p>}>
-        {() => <OutlineColumn client={client} accent={props.accent} />}
+        {() => <OutlineColumn client={client} uid={uid()!} accent={props.accent} />}
       </Show>
     </div>
   );
 };
 
-const OutlineColumn: Component<{ client: SupabaseClient; accent: string }> = (props) => {
+const OutlineColumn: Component<{ client: SupabaseClient; uid: string; accent: string }> = (props) => {
   const [draft, setDraft] = createSignal("");
+  const [selLabel, setSelLabel] = createSignal("");
   const [domRows, setDomRows] = createSignal(0);
 
-  // Lazy DB controller over the Supabase outline (children fetched on expand). Its
-  // realtime subscription patches INSERT/UPDATE/DELETE — no manual refetch.
-  const tree = createDatabaseTreeController({
-    source: supabaseSource({
-      client: props.client,
-      table: TABLE,
-      toNode,
-      parentColumn: "parent_id",
-      orderBy: { column: "created_at" },
-    }),
+  // Lazy Supabase controller + record lock (lock RPCs point at the outline_* functions).
+  const tree = createSupabaseTreeController({
+    client: props.client,
+    table: TABLE,
+    toNode,
+    parentColumn: "parent_id",
+    orderBy: { column: "created_at" },
+    lockRpc: LOCK_RPC,
+    // Selecting a node grabs its lock (one editor → one lock). If refused, you don't hold it.
+    onSelect: async (n) => {
+      setSelLabel(n.label);
+      await tree.acquireLock(n.id);
+    },
   });
 
   const sel = () => tree.selectedId();
+  const hold = () => !!sel() && tree.heldId() === sel(); // you currently hold the selected node
+
   const add = async (parent: string | null) => {
     await props.client.rpc("outline_add", { _parent: parent, _label: draft() });
     setDraft("");
-    // If the parent is already expanded, the realtime INSERT appends it live. If it was
-    // a leaf, the parent's child_count UPDATE grows its chevron live — expand to load.
     if (parent) tree.expand(parent);
   };
   const remove = async () => {
     const id = sel();
     if (!id) return;
-    await props.client.rpc("outline_remove", { _id: id });
+    const { data: ok } = await props.client.rpc("outline_remove", { _id: id });
+    if (ok === false) {
+      window.alert("Can't remove — this node or a descendant is locked by another user.");
+      return;
+    }
+    await tree.releaseLock();
     tree.deselect();
   };
   const rename = async () => {
     const id = sel();
-    if (id && draft().trim()) {
-      await props.client.rpc("outline_rename", { _id: id, _label: draft() });
-      setDraft("");
+    if (!id) return;
+    const next = window.prompt("Rename node:", selLabel());
+    if (next && next.trim()) {
+      await props.client.rpc("outline_rename", { _id: id, _label: next });
+      setSelLabel(next.trim());
     }
   };
 
@@ -97,20 +112,29 @@ const OutlineColumn: Component<{ client: SupabaseClient; accent: string }> = (pr
         <input
           value={draft()}
           onInput={(e) => setDraft(e.currentTarget.value)}
-          placeholder="label…"
+          placeholder="new label…"
           style="flex:1;min-width:0;padding:5px 7px;font-size:13px"
         />
-        <button onClick={() => add(null)}>+ root</button>
+        <button disabled={!draft().trim()} onClick={() => add(null)}>+ root</button>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:8px;font-size:13px">
-        <button disabled={!sel()} onClick={() => add(sel())}>+ child</button>
-        <button disabled={!sel() || !draft().trim()} onClick={rename}>rename</button>
-        <button disabled={!sel()} onClick={remove}>remove</button>
+        <button disabled={!hold() || !draft().trim()} onClick={() => add(sel())}>+ child</button>
+        <button disabled={!hold()} onClick={rename}>rename</button>
+        <button disabled={!hold()} onClick={remove}>remove</button>
         <span style="flex:1" />
         <span style="opacity:.6;font-size:12px;align-self:center">{domRows()} in DOM</span>
       </div>
       <div style={`height:360px;border:2px solid ${props.accent};border-radius:8px;--text-muted:#8a8f98;--border-subtle:rgba(0,0,0,.12);--tree-row-active-bg:${props.accent}22`}>
-        <DatabaseTree tree={tree} onRangeChange={(s, e) => setDomRows(e - s + 1)} />
+        <SupabaseTree
+          tree={tree}
+          onRangeChange={(s, e) => setDomRows(e - s + 1)}
+          renderActionNode={(n) => {
+            const lb = n.payload?.lockedBy as string | null;
+            if (lb === props.uid) return <span title="you hold the lock">🔒</span>;
+            if (lb) return <span style="font-size:11px;color:#b45309">👤 locked</span>;
+            return null;
+          }}
+        />
       </div>
     </>
   );
@@ -120,15 +144,16 @@ export const OutlineDemo: Component = () => {
   const configured = URL && ANON && !ANON.includes("paste-anon");
   return (
     <div style="font-family:system-ui;padding:16px;max-width:760px">
-      <h2>Collaborative outline — lazy, live insert / remove</h2>
+      <h2>Collaborative outline — lazy, locked, live</h2>
       <p style="font-size:13px;color:#555">
         Two real Supabase sessions on a shared <code>scratch_outline</code> table. Type a
-        label, <strong>+ root</strong> or select a node and <strong>+ child</strong> /{" "}
-        <strong>rename</strong> / <strong>remove</strong>. Mutations go through SECURITY
-        DEFINER RPCs (RLS denies direct writes); changes sync live via Realtime. Genuinely
-        <strong> lazy</strong> — children load on expand — yet leaves show no chevron (from a
-        stored <code>child_count</code> that flips a node's chevron live as children come and
-        go). Add a root on the left → watch it appear on the right.
+        label and <strong>+ root</strong>; or click a node to <strong>lock</strong> it (🔒
+        yours, 👤 theirs) and <strong>+ child</strong> / <strong>rename</strong> /{" "}
+        <strong>remove</strong>. While you hold a node, the other user can't rename or delete
+        it (server-enforced via SECURITY DEFINER RPCs) — so children can't be deleted out
+        from under you. Genuinely lazy (children load on expand); changes sync live via
+        Realtime. Try: lock Q4 goals on the left → watch 👤 appear on the right and their
+        remove refuse.
       </p>
       <Show
         when={configured}
