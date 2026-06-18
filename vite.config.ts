@@ -14,12 +14,19 @@ export default defineConfig({
       entry: {
         index: resolve(__dirname, "src/index.tsx"),
         virtual: resolve(__dirname, "src/virtual.tsx"),
+        database: resolve(__dirname, "src/database.tsx"),
       },
       formats: ["es"],
     },
     rollupOptions: {
       // Keep all peers external — never bundle Solid or the optional adapters.
-      external: ["solid-js", "solid-js/web", "solid-js/store", "@tanstack/solid-virtual"],
+      external: [
+        "solid-js",
+        "solid-js/web",
+        "solid-js/store",
+        "@tanstack/solid-virtual",
+        "@tanstack/solid-query",
+      ],
       output: { entryFileNames: "[name].js" },
     },
     target: "esnext",

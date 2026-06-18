@@ -10,5 +10,5 @@ export default defineConfig({
   // REQUIRED: collapse to a single solid-js instance. Without this a prod build
   // can pull a second copy (via the package's compiled dist importing solid-js),
   // and ref/use() directives from the 2nd instance silently no-op.
-  resolve: { dedupe: ["solid-js", "@tanstack/solid-virtual"] },
+  resolve: { dedupe: ["solid-js", "@tanstack/solid-virtual", "@tanstack/solid-query"] },
 });
