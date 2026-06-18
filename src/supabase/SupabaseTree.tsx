@@ -1,40 +1,71 @@
 import { type Component } from "solid-js";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { DatabaseTree, type DatabaseTreeProps } from "../DatabaseTree.jsx";
-import { supabaseSource, type SupabaseSourceConfig } from "./source.js";
+import { createSupabaseTreeController, type SupabaseTreeController, type SupabaseTreeControllerOptions } from "./controller.js";
 
-export interface SupabaseTreeProps extends Omit<DatabaseTreeProps, "source"> {
-  client: SupabaseClient;
-  table: string;
-  toNode: SupabaseSourceConfig["toNode"];
+export interface SupabaseTreeProps extends Omit<DatabaseTreeProps, "source" | "tree"> {
+  client?: SupabaseTreeControllerOptions["client"];
+  table?: string;
+  toNode?: SupabaseTreeControllerOptions["toNode"];
   idColumn?: string;
   parentColumn?: string;
   select?: string;
-  orderBy?: SupabaseSourceConfig["orderBy"];
+  orderBy?: SupabaseTreeControllerOptions["orderBy"];
   schema?: string;
   realtime?: boolean;
+  pageSize?: number;
+  heartbeatMs?: number;
+  onLockLost?: (id: string) => void;
+  /** Drive this view with an external controller; omit to build one from the props. */
+  tree?: SupabaseTreeController;
 }
 
 /**
- * `<DatabaseTree>` wired to a Supabase table: async roots/children + lazy expand +
- * windowing + live realtime updates, with RLS doing access control server-side.
- * Thin preset — it builds a {@link supabaseSource} and hands it to `<DatabaseTree>`;
- * pair it with {@link createSupabaseLock} for collaborative record locking.
- * Subpath: `@timotholt/solid-tree/supabase`. Peers: @supabase/supabase-js +
- * @tanstack/solid-query + @tanstack/solid-virtual (all optional). Dedupe solid-js.
+ * `<DatabaseTree>` wired to a Supabase table + record lock: async roots/children, lazy
+ * expand, windowing, live realtime, and server-enforced collaborative locking. Thin view
+ * over {@link createSupabaseTreeController}. Pass `tree={...}` to control it externally
+ * (acquireLock/releaseLock/expand/select), or the convenience props to have it build one.
+ * Subpath: `@timotholt/solid-tree/supabase`. Peer: @supabase/supabase-js (optional).
  */
 export const SupabaseTree: Component<SupabaseTreeProps> = (props) => {
-  // Built once from the initial client+table (stable for a mounted tree).
-  const source = supabaseSource({
-    client: props.client,
-    table: props.table,
-    toNode: props.toNode,
-    idColumn: props.idColumn,
-    parentColumn: props.parentColumn,
-    select: props.select,
-    orderBy: props.orderBy,
-    schema: props.schema,
-    realtime: props.realtime,
-  });
-  return <DatabaseTree {...props} source={source} />;
+  const tree =
+    props.tree ??
+    createSupabaseTreeController({
+      client: props.client!,
+      table: props.table!,
+      toNode: props.toNode!,
+      idColumn: props.idColumn,
+      parentColumn: props.parentColumn,
+      select: props.select,
+      orderBy: props.orderBy,
+      schema: props.schema,
+      realtime: props.realtime,
+      pageSize: props.pageSize,
+      queryClient: props.queryClient,
+      heartbeatMs: props.heartbeatMs,
+      onLockLost: props.onLockLost,
+      selectedId: () => props.selectedId,
+      searchQuery: () => props.searchQuery,
+      matcher: props.matcher,
+      filterMode: props.filterMode,
+      onSelect: props.onSelect,
+      onToggle: props.onToggle,
+      storageKey: props.storageKey,
+      storagePrefix: props.storagePrefix,
+    });
+
+  return (
+    <DatabaseTree
+      tree={tree}
+      renderLabel={props.renderLabel}
+      renderActionNode={props.renderActionNode}
+      noMatchesLabel={props.noMatchesLabel}
+      basePadding={props.basePadding}
+      indentStep={props.indentStep}
+      estimateSize={props.estimateSize}
+      overscan={props.overscan}
+      class={props.class}
+      viewportStyle={props.viewportStyle}
+      onRangeChange={props.onRangeChange}
+    />
+  );
 };

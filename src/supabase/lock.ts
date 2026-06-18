@@ -29,6 +29,8 @@ export interface SupabaseLock {
   release(): Promise<void>;
   /** Release every lock this user holds server-side (clean slate on mount/sign-out). */
   releaseAll(): Promise<void>;
+  /** Manually beat the heartbeat for the held lock (extends its TTL). */
+  refresh(): Promise<void>;
   /** The id we currently hold, or null. */
   held(): string | null;
   /**
@@ -108,6 +110,12 @@ export function createSupabaseLock(cfg: SupabaseLockConfig): SupabaseLock {
       heldId = null;
       stopBeat();
       await cfg.client.rpc(releaseAllFn);
+    },
+
+    async refresh() {
+      if (!heldId) return;
+      const { error } = await cfg.client.rpc(touchFn, { [idArg]: heldId });
+      if (error) lost();
     },
 
     observe(row) {
