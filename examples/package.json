@@ -11,6 +11,7 @@
     "solid-js": "^1.9.11"
   },
   "devDependencies": {
+    "@tanstack/solid-virtual": "^3.13.29",
     "vite": "^5.4.0",
     "vite-plugin-solid": "^2.11.0"
   }

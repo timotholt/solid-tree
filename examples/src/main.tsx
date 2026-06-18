@@ -1,4 +1,6 @@
 import { render } from "solid-js/web";
 import { App } from "./App.jsx";
+import { Spike } from "./Spike.jsx";
 
-render(() => <App />, document.getElementById("app")!);
+const spike = new URLSearchParams(location.search).has("spike");
+render(() => (spike ? <Spike /> : <App />), document.getElementById("app")!);
