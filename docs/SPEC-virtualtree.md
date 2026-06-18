@@ -1,10 +1,65 @@
 # Spec — `<VirtualTree>` (the dumb windowed tier)
 
-Status: **not built.** This spec captures the design + the `@tanstack/solid-virtual`
-gotchas researched up front (there is NO official Solid example for this adapter —
-only react/vue/svelte/angular/lit — so the Solid usage below is derived from the
-React dynamic example + the adapter conventions and MUST be validated with a small
-spike before building the full component).
+Status: **adapter pattern PROVEN via spike** (branch `spike/virtual-adapter`,
+`examples/src/Spike.tsx`, `?spike`). Validated on **stock `@tanstack/solid-virtual`
+3.13.29** in a real Chrome tab: windowing (15–18 of 5000 rows), real measured rect,
+scroll re-windows (offset 30210 → rows 670–687), `scrollToIndex`, reactive `count`
+growth (5000→7000), dynamic `measureElement` (totalSize refined). Component not
+built yet, but the exact working recipe + gotchas are below.
+
+## VALIDATED gotchas (cost real debugging — bake these into VirtualTree)
+
+1. **Scroll element must be published in `onMount`, NOT bound directly in the ref.**
+   THE critical one. Solid builds DOM from a `<template>`, so at ref-time the node's
+   `ownerDocument.defaultView` is `null` (inert template document). The adapter's
+   reactive computed reads `getScrollElement` (via `_willUpdate`), so binding the
+   element in the ref resolves `targetWindow = null` while still template-owned —
+   and it never re-resolves after adoption → `scrollRect` stays 0×0, observers never
+   attach, **blank list, no scroll**. Fix:
+   ```tsx
+   let el!: HTMLDivElement;
+   const [scrollEl, setScrollEl] = createSignal<HTMLDivElement>();
+   onMount(() => setScrollEl(el));          // adopted into live doc → defaultView = window
+   const virtualizer = createVirtualizer({ getScrollElement: () => scrollEl() ?? null, ... });
+   // <div ref={el} ...>
+   ```
+2. **`data-index`: set it BOTH reactively AND in the ref.** `measureElement` reads
+   the `data-index` *attribute*; Solid applies a dynamic attr in an effect that runs
+   AFTER the ref → initial read is `null` → `getItemKey(NaN)` → crash. So set it in
+   the ref for the initial measure, AND keep a reactive `data-index={vi.index}` so it
+   stays correct when the node is reused for a different row on scroll.
+3. **Defer `measureElement` out of the render pass (rAF).** Calling it synchronously
+   in the ref → `resizeItem` → `notify` → `setStore` → re-runs the `<For>` mapper
+   mid-render → current `vi` is undefined → crash. `requestAnimationFrame(() => virtualizer.measureElement(el))`.
+4. **Create the virtualizer once** at top level (never in a memo). Reactive fields via
+   getters (`get count()`). `getVirtualItems()`/`getTotalSize()` are reactive (Proxy).
+5. **`getItemKey: i => rows()[i].id`** (persistent id) — heights cache by key; our
+   prune rebuilds node objects each keystroke, so index/ref keys thrash.
+6. NOT needed: PR #1203 (`measure()`→`_willUpdate()`) — that's a *different* bug
+   (measurement preservation); irrelevant once gotcha #1 is applied. `initialRect`
+   also unneeded once #1 is fixed (it only papered over the rect, not scroll).
+7. `contain: strict` not required; `overflow-anchor: none` still recommended for
+   dynamic-height scroll stability.
+
+The working spike row:
+```tsx
+<For each={virtualizer.getVirtualItems()}>
+  {(vi) => (
+    <div
+      data-index={vi.index}
+      ref={(el) => { el.setAttribute("data-index", String(vi.index));
+                     requestAnimationFrame(() => virtualizer.measureElement(el)); }}
+      style={`position:absolute;top:0;left:0;width:100%;transform:translateY(${vi.start}px)`}
+    >
+      <TreeRow node={rows()[vi.index].node} depth={rows()[vi.index].depth} />
+    </div>
+  )}
+</For>
+```
+
+---
+
+## (original speculative notes follow — superseded by the validated section above)
 
 ## What it is
 `<Tree>` for big data. Same public API (`TreeNodeData`, props, tokens, `renderLabel`/

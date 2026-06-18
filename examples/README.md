@@ -15,3 +15,11 @@ npm run build    # type/compile check (proves the package resolves)
 
 The example app consumes the local package through its `file:..` dependency and
 the `solid` export condition — i.e. the same path a real consumer hits.
+
+## Virtualization spike
+
+`npm run dev` then open **`/?spike`** ([`src/Spike.tsx`](src/Spike.tsx)) — a runnable
+proof of [`../docs/SPEC-virtualtree.md`](../docs/SPEC-virtualtree.md). It validates the
+`@tanstack/solid-virtual` integration `<VirtualTree>` will be built on (windowing,
+variable-height measurement, scroll, reactive growth) and pins down the three Solid
+gotchas. Keep it — it's the executable spec for the virtual tier.
