@@ -4,19 +4,15 @@
 //
 // Uses ONLY the public anon key + two throwaway test users. No service-role key.
 //
-// Prereq:
-//   1. Apply migrations/0001_scratch_lock.sql in the SQL editor.
-//   2. Auth → Providers → Email: turn OFF "Confirm email" for this scratch
-//      project (so signUp users can sign in immediately). Or pre-create users
-//      A & B (confirmed) and pass their creds via env.
-//   3. Set env: SUPABASE_URL, SUPABASE_ANON_KEY.
-//      Optional: TEST_A_EMAIL/TEST_A_PASS, TEST_B_EMAIL/TEST_B_PASS
-//      (defaults provision scratch+a@example.com / scratch+b@example.com).
-//
-// Run:  npx tsx supabase/test/lock-audit.ts
-//   (or: deno run -A supabase/test/lock-audit.ts)
+// Reads supabase/.env automatically. Just:  npm run audit
+// (Prereq: `npm run setup` first.)
 
+import { config } from "dotenv";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+config({ path: join(dirname(fileURLToPath(import.meta.url)), "..", ".env") });
 
 const URL = need("SUPABASE_URL");
 const ANON = need("SUPABASE_ANON_KEY");
