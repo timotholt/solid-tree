@@ -1,25 +1,25 @@
-# @timotholt/tree — agent guide
+# @timotholt/solid-tree — agent guide
 
 SolidJS tree-view component. This file is the complete usage contract. Read it, then use the component without guessing.
 
 ## Install
 ```jsonc
-"@timotholt/tree": "github:timotholt/solid-tree#semver:^0.7.0"
+"@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.8.0"
 ```
-Consumer MUST be SolidJS + `vite-plugin-solid`. `solid-js` is a peer dep (single Solid instance). The package ships raw source under the `solid` export condition; consumers compile it. Add `optimizeDeps: { exclude: ['@timotholt/tree'] }` to the consumer's `vite.config`.
+Consumer MUST be SolidJS + `vite-plugin-solid`. `solid-js` is a peer dep (single Solid instance). The package ships raw source under the `solid` export condition; consumers compile it. Add `optimizeDeps: { exclude: ['@timotholt/solid-tree'] }` to the consumer's `vite.config`.
 
 ## Required setup
 Tree uses two CSS vars. Define them OR import the shipped theme:
 ```ts
-import "@timotholt/tree/theme.css";   // sane defaults + row hover/active + highlight
+import "@timotholt/solid-tree/theme.css";   // sane defaults + row hover/active + highlight
 ```
 Or define yourself: `--text-muted` (chevron color), `--border-subtle` (divider color). No other setup.
 
 ## Minimal example
 ```tsx
 import { createSignal } from "solid-js";
-import { Tree, type TreeNodeData } from "@timotholt/tree";
-import "@timotholt/tree/theme.css";
+import { Tree, type TreeNodeData } from "@timotholt/solid-tree";
+import "@timotholt/solid-tree/theme.css";
 
 const data: TreeNodeData[] = [
   { id: "a", label: "Group A", type: "group",

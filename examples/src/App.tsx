@@ -1,6 +1,6 @@
 import { createSignal, type Component } from "solid-js";
-import { Tree, type TreeNodeData } from "@timotholt/tree";
-import "@timotholt/tree/theme.css";
+import { Tree, type TreeNodeData } from "@timotholt/solid-tree";
+import "@timotholt/solid-tree/theme.css";
 import { Demo } from "./Demo.jsx";
 
 // ── 1. Basics: nesting, expand/collapse, selection, persistence ──────────────
@@ -243,10 +243,10 @@ const MultiLineDemo: Component = () => {
 
 export const App: Component = () => (
   <main>
-    <h1>@timotholt/tree</h1>
+    <h1>@timotholt/solid-tree</h1>
     <p class="lede">
       Live examples. Each card shows the rendered component next to the exact code
-      that produced it. Install: <code>github:timotholt/solid-tree#semver:^0.7.0</code>
+      that produced it. Install: <code>github:timotholt/solid-tree#semver:^0.8.0</code>
     </p>
 
     <Demo

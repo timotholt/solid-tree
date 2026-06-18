@@ -1,4 +1,4 @@
-# @timotholt/tree
+# @timotholt/solid-tree
 
 A small, themeable **SolidJS** tree-view component. Extracted to be reused across
 apps — "build once, use many".
@@ -22,12 +22,12 @@ how you keep consumers from getting stuck on an old version):
 // package.json
 {
   "dependencies": {
-    "@timotholt/tree": "github:timotholt/solid-tree#semver:^0.7.0"
+    "@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.8.0"
   }
 }
 ```
 
-`#semver:^0.7.0` resolves to the highest `0.x` tag ≥ 0.7.0. Pin an exact tag
+`#semver:^0.8.0` resolves to the highest `0.x` tag ≥ 0.7.0. Pin an exact tag
 (`#v0.7.0`) instead only when you want fully reproducible installs. (Plain git deps
 can't be force-updated server-side — the consumer controls the ref; the semver
 range is what lets `npm update` advance them.)
@@ -53,7 +53,7 @@ The component references two CSS custom properties. Either define them yourself:
 …or import the shipped defaults (also styles row hover/active + the action slot):
 
 ```ts
-import "@timotholt/tree/theme.css";
+import "@timotholt/solid-tree/theme.css";
 ```
 
 `theme.css` exposes overridable vars: `--tree-row-hover-bg`, `--tree-row-active-bg`,
@@ -63,8 +63,8 @@ import "@timotholt/tree/theme.css";
 
 ```tsx
 import { createSignal } from "solid-js";
-import { Tree, type TreeNodeData } from "@timotholt/tree";
-import "@timotholt/tree/theme.css";
+import { Tree, type TreeNodeData } from "@timotholt/solid-tree";
+import "@timotholt/solid-tree/theme.css";
 
 const data: TreeNodeData[] = [
   {

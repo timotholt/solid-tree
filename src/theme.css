@@ -1,6 +1,6 @@
 /*
- * Optional theme for @timotholt/tree.
- *   import "@timotholt/tree/theme.css";
+ * Optional theme for @timotholt/solid-tree.
+ *   import "@timotholt/solid-tree/theme.css";
  *
  * The component is self-laying-out without this file (flex/ellipsis are inline).
  * This stylesheet only adds cosmetics: padding, radius, hover/active background,
