@@ -12,15 +12,18 @@ pluggable matcher, built-in highlight).
 `solid` export condition so your app's `vite-plugin-solid` compiles it, keeping a
 single Solid instance.
 
-### Three tiers (import only what you need)
-| import | for | extra peer |
-| --- | --- | --- |
-| `@timotholt/solid-tree` | `<Tree>` — recursive, in-memory, grows with content | none |
-| `@timotholt/solid-tree/virtual` | `<VirtualTree>` — windowed, large in-memory lists | `@tanstack/solid-virtual` |
-| `@timotholt/solid-tree/database` | `<DatabaseTree>` — async source, lazy-load, cached | `+ @tanstack/solid-query` |
+### Tiers (import only what you need)
+| import | component / controller | for | extra peer |
+| --- | --- | --- | --- |
+| `@timotholt/solid-tree` | `<Tree>` / `createTreeController` | recursive, in-memory, grows with content | none |
+| `@timotholt/solid-tree/virtual` | `<VirtualTree>` / `createTreeController` | windowed, large in-memory lists | `@tanstack/solid-virtual` |
+| `@timotholt/solid-tree/database` | `<DatabaseTree>` / `createDatabaseTreeController` | async source, lazy-load, cached, realtime | `+ @tanstack/solid-query` |
+| `@timotholt/solid-tree/supabase` | `<SupabaseTree>` / `createSupabaseTreeController` | Supabase table + record locking | `+ @supabase/supabase-js` |
 
-Same `TreeNodeData`/props/tokens across all three. The base import pulls zero extra
-deps. **Consumers must `resolve.dedupe` solid-js** (+ any tier peers) — see AGENTS.md.
+Same `TreeNodeData`/props/tokens across all tiers. The base import pulls zero extra
+deps. Each tier ships both a **component** (declarative) and a **controller** (imperative)
+— see [Controller API](#controller-api-imperative). **Consumers must `resolve.dedupe`
+solid-js** (+ any tier peers) — see AGENTS.md.
 
 ## Install (git dependency)
 
@@ -32,12 +35,12 @@ how you keep consumers from getting stuck on an old version):
 // package.json
 {
   "dependencies": {
-    "@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.8.0"
+    "@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.12.0"
   }
 }
 ```
 
-`#semver:^0.8.0` resolves to the highest `0.x` tag ≥ 0.7.0. Pin an exact tag
+`#semver:^0.12.0` resolves to the highest `0.x` tag ≥ 0.12.0. Pin an exact tag
 (`#v0.7.0`) instead only when you want fully reproducible installs. (Plain git deps
 can't be force-updated server-side — the consumer controls the ref; the semver
 range is what lets `npm update` advance them.)
@@ -119,6 +122,56 @@ renderActionNode={(node) => (
 )}
 ```
 
+## Controller API (imperative)
+
+Every tier ships a **controller** alongside its component. The component is the
+declarative view; the controller is the imperative instance that owns the state — so you
+can drive the tree from *outside* (toolbar buttons, keyboard shortcuts, your own logic).
+Same pattern as TanStack's "instance + markup".
+
+```tsx
+import { createTreeController, VirtualTree } from "@timotholt/solid-tree/virtual";
+
+function Sidebar() {
+  const tree = createTreeController({ data: () => myData });   // build inside a component!
+  return (
+    <>
+      <button onClick={() => tree.expandAll()}>Expand all</button>
+      <button onClick={() => tree.select("apple")}>Select Apple</button>
+      <input onInput={(e) => tree.setSearch(e.currentTarget.value)} />
+      <VirtualTree tree={tree} />          {/* the view just reflects the controller */}
+    </>
+  );
+}
+```
+
+Or skip the controller and pass props — the component builds one internally (the original
+API, unchanged): `<Tree data={data} selectedId={sel()} onSelect={...} />`.
+
+> ⚠️ `create*Controller()` creates signals/effects, so call it **inside a component body
+> or `createRoot`** — never at module top level.
+
+**`createTreeController(opts)` → `TreeController`** (also in `/virtual`):
+
+| reads (accessors) | actions |
+| --- | --- |
+| `nodes()` · `displayNodes()` · `flatRows()` | `expand(id)` · `collapse(id)` · `toggle(id)` |
+| `expandedIds()` · `selectedId()` | `expandAll()` · `collapseAll()` |
+| `searching()` · `noMatches()` | `select(id)` · `deselect()` · `setSearch(q)` |
+
+Options: `data` (required, `Accessor<TreeNodeData[]>`), and optional `selectedId` /
+`searchQuery` (controlled-input accessors that win over the internal signals), `matcher`,
+`filterMode`, `onSelect`, `onToggle`, `storageKey`, `storagePrefix`.
+
+**`createDatabaseTreeController(opts)`** adds: `loadChildren(id)` · `reloadChildren(id)` ·
+`isLoading(id)` · `subscribe()` · `unsubscribe()`. Options take a `source` (+ optional
+`queryClient`) instead of `data`.
+
+**`createSupabaseTreeController(opts)`** adds: `heldId()` · `acquireLock(id)` ·
+`releaseLock()` · `releaseAllLocks()` · `refreshLock()`. Options take `client` / `table` /
+`toNode` (+ `parentColumn`, `orderBy`, lock RPC overrides, …). See
+[docs/SPEC-locking.md](docs/SPEC-locking.md) for the server side.
+
 ## API
 
 ### `TreeNodeData`
@@ -155,8 +208,9 @@ renderActionNode={(node) => (
 | `matcher?`         | `(node, q: string) => boolean`        | label substring | hit policy (see Search below)             |
 | `filterMode?`      | `"prune" \| "dim"`                    | `"prune"`| prune drops non-matches; dim fades them           |
 | `noMatchesLabel?`  | `string`                              | `"No matches"` | shown (prune) when a query yields nothing   |
+| `tree?`            | `TreeController`                       | —        | drive the view with an external controller (then `data`/`onSelect`/`selectedId`/… are owned by it) — see [Controller API](#controller-api-imperative) |
 
-Also exported: `Chevron` (the ▶/▼ toggle), `storage` (the localStorage helper), and the `TreeMatcher` type.
+Also exported: `Chevron` (the ▶/▼ toggle), `storage` (the localStorage helper), `createTreeController`, and the `TreeMatcher`/`TreeController` types.
 
 ## Search & filtering
 

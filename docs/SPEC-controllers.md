@@ -182,6 +182,11 @@ onSelect/onToggle = event callbacks the controller fires). Documented precedence
 
 ## 6. Migration phases (each: build → typecheck → demo verify → audit → commit)
 
+> **STATUS (2026-06-18): ALL PHASES SHIPPED ✅** (v0.12.0). Phases 1–5 done; verified
+> in-browser per phase, audit 15/15. Notes vs the plan: `state.ts` was internal-only so it
+> was removed outright (no alias needed); the layered controllers live flat
+> (`src/controller.ts`, `src/DatabaseTreeController.ts`, `src/supabase/controller.ts`).
+
 **Phase 0 — this doc + decisions confirmed.** No code.
 
 **Phase 1 — core controller.**

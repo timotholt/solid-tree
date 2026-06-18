@@ -4,7 +4,7 @@ SolidJS tree-view component. This file is the complete usage contract. Read it, 
 
 ## Install
 ```jsonc
-"@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.8.0"
+"@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.12.0"
 ```
 Consumer MUST be SolidJS + `vite-plugin-solid`. `solid-js` is a peer dep (single Solid instance). The package ships raw source under the `solid` export condition; consumers compile it. Add `optimizeDeps: { exclude: ['@timotholt/solid-tree'] }` to the consumer's `vite.config`.
 
@@ -174,8 +174,7 @@ const source: TreeSource = {
 - Same dedupe + viewport-height + bounded-parent rules as VirtualTree.
 - Loading-on-expand shows a transient "Loading…" placeholder row.
 - v1 search is client-side over loaded nodes; server `source.search` + ancestor
-  hydration + scroll-paging (via VirtualTree `onRangeChange`) are documented next
-  steps. A `<SupabaseTree>` preset would just wire a Supabase source.
+  hydration + scroll-paging (via VirtualTree `onRangeChange`) are documented next steps.
 
 ### Live updates (collaborative / realtime)
 `TreeSource.subscribe?(onChange)` makes DatabaseTree patch its cache from live
@@ -197,11 +196,50 @@ Only ALREADY-LOADED branches are patched; unloaded ones load fresh on expand.
 acquire/release/TTL + RLS enforcement live in your app + Supabase. (See the
 `?database2` example.)
 
+## `<SupabaseTree>` — Supabase preset + record locking
+Thin preset over DatabaseTree: maps a Supabase table to a source (auto-paginates past
+the PostgREST 1000-row cap), wires realtime, and adds collaborative locking.
+```tsx
+import { SupabaseTree } from "@timotholt/solid-tree/supabase";
+<SupabaseTree client={supabase} table="nodes" toNode={toNode}
+  parentColumn="parent_id" orderBy={{ column: "label" }}
+  onSelect={...} renderActionNode={(n) => n.payload.lockedBy ? "🔒" : null} />
+```
+- Peer (optional): `@supabase/supabase-js`. **Dedupe it too** alongside solid-js.
+- Server side (RLS + SECURITY DEFINER acquire/release/touch RPCs + the adversarial
+  test harness) lives in `supabase/` — see `docs/SPEC-locking.md`. The component only
+  reflects + triggers; Postgres enforces.
+
+## Controller API (imperative) — every tier
+Each tier ships a **controller** beside its component. The component is the declarative
+view; the controller is the instance that OWNS the state, so you can drive the tree from
+outside (buttons, shortcuts, your own logic). Two equivalent ways to use any tier:
+```tsx
+// A) props (component builds its own controller — the original API, unchanged)
+<Tree data={data} selectedId={sel()} onSelect={...} />
+// B) controller (you build it, drive it, pass it in)
+const tree = createTreeController({ data: () => data });   // ⚠️ call inside a component / createRoot
+<VirtualTree tree={tree} />
+tree.expandAll(); tree.select("apple"); tree.setSearch("foo");
+```
+- `createTreeController` (base + `/virtual`): reads `nodes/displayNodes/flatRows/
+  expandedIds/selectedId/searching/noMatches`; actions `expand/collapse/toggle/expandAll/
+  collapseAll/select/deselect/setSearch`. Opts: `data` (Accessor, required) + optional
+  controlled `selectedId`/`searchQuery` accessors, `matcher`, `filterMode`, `onSelect`,
+  `onToggle`, `storageKey`, `storagePrefix`.
+- `createDatabaseTreeController` (`/database`): + `loadChildren/reloadChildren/isLoading/
+  subscribe/unsubscribe`; opts take `source` (+ `queryClient`) instead of `data`.
+- `createSupabaseTreeController` (`/supabase`): + `heldId/acquireLock/releaseLock/
+  releaseAllLocks/refreshLock`; opts take `client/table/toNode/parentColumn/…`.
+- ⚠️ Controllers create signals/effects → build them in a component body or `createRoot`,
+  never at module top. `selectedId`/`searchQuery` are SINGLE-selection, controlled-input
+  accessors that win over the internal signal when provided.
+
 ## What it does NOT do (don't assume these)
-- No multi-select, no checkboxes. Single selection only.
+- No multi-select, no checkboxes. Single selection only (all tiers, incl. controllers).
 - No drag-and-drop, no inline rename, no context menu.
-- No data fetching. You build `data`; for lazy children, fetch in the parent and feed updated `data` (optionally trigger via `onToggle`).
-- No virtualization (fine up to a few thousand nodes; not for 10k+).
+- Base `<Tree>` does no data fetching or virtualization — build `data` yourself (use
+  `<VirtualTree>` for large lists, `<DatabaseTree>`/`<SupabaseTree>` for async/lazy).
 - Does not persist selection, scroll, or filter — only expand state, and only if `storageKey` is set.
 
 ## Common patterns

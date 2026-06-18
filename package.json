@@ -1,6 +1,6 @@
 {
   "name": "@timotholt/solid-tree",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "A small, themeable SolidJS tree-view component (expand/collapse with persistence, selection, icons, counts, dividers, per-node action slots).",
   "license": "MIT",
   "type": "module",
