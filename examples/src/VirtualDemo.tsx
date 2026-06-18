@@ -21,11 +21,14 @@ const data: TreeNodeData[] = Array.from({ length: 200 }, (_, g) => ({
 export const VirtualDemo: Component = () => {
   const [sel, setSel] = createSignal<string | null>(null);
   const [q, setQ] = createSignal("");
+  const [domRows, setDomRows] = createSignal(0);
+  const total = 200 + 200 * 25;
   return (
     <div style="font-family:system-ui;padding:16px;max-width:420px">
       <h2>&lt;VirtualTree&gt;</h2>
       <p style="font-size:13px;color:#555">
-        ~5200 nodes, windowed. selected: {sel() ?? "(none)"}
+        Proof it's windowed, not all in the DOM: <strong>{domRows()} rows in DOM</strong> of{" "}
+        {total.toLocaleString()} nodes. selected: {sel() ?? "(none)"}
       </p>
       <input
         placeholder="filter…"
@@ -40,6 +43,7 @@ export const VirtualDemo: Component = () => {
           selectedId={sel()}
           searchQuery={q()}
           storageKey="virtualdemo"
+          onRangeChange={(start, end) => setDomRows(end - start + 1)}
           onSelect={(n) => setSel(n.id)}
           renderActionNode={(n) =>
             n.status === "new" ? (

@@ -1,0 +1,23 @@
+import { type Component } from "solid-js";
+
+const links: { href: string; label: string; match: (s: URLSearchParams) => boolean }[] = [
+  { href: "/", label: "Gallery (<Tree>)", match: (s) => !s.has("virtual") && !s.has("database") && !s.has("spike") },
+  { href: "/?virtual", label: "<VirtualTree>", match: (s) => s.has("virtual") },
+  { href: "/?database", label: "<DatabaseTree>", match: (s) => s.has("database") },
+  { href: "/?spike", label: "solid-virtual spike", match: (s) => s.has("spike") },
+];
+
+export const Nav: Component = () => {
+  const params = new URLSearchParams(location.search);
+  return (
+    <nav class="demo-nav">
+      <strong>@timotholt/solid-tree</strong>
+      <span style="flex:1" />
+      {links.map((l) => (
+        <a href={l.href} classList={{ active: l.match(params) }}>
+          {l.label}
+        </a>
+      ))}
+    </nav>
+  );
+};

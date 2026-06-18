@@ -57,7 +57,10 @@ const DatabaseTreeInner: Component<DatabaseTreeProps & { client: QueryClient }> 
     return node;
   };
 
-  const data = createMemo(() => (rootsQuery.data ?? []).map(assemble));
+  const data = createMemo(() =>
+    // While the first roots fetch is in flight, show a single Loading… row.
+    rootsQuery.isLoading ? [loadingChild("__roots")] : (rootsQuery.data ?? []).map(assemble)
+  );
 
   // Fetch children on first expand (cached + deduped by Query).
   const fetchChildren = async (node: TreeNodeData) => {
@@ -72,7 +75,8 @@ const DatabaseTreeInner: Component<DatabaseTreeProps & { client: QueryClient }> 
   // Render the placeholder distinctly; otherwise delegate to the consumer / default.
   const renderLabel = (node: TreeNodeData) => {
     if (node.type === LOADING_TYPE) {
-      return <span style="opacity:.55;font-style:italic">{node.label}</span>;
+      // .solid-tree-loading is a styling hook (e.g. a spinner); consumers can target it.
+      return <span class="solid-tree-loading" style="opacity:.6;font-style:italic">{node.label}</span>;
     }
     return props.renderLabel ? props.renderLabel(node) : node.label;
   };

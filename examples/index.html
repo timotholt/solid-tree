@@ -89,6 +89,20 @@
         background: #0f1729; border-radius: 8px; padding: 6px;
       }
       .themed-tree .solid-tree-row[data-selected] { color: #fff; }
+      .demo-nav {
+        display: flex; align-items: center; gap: 14px;
+        padding: 10px 16px; border-bottom: 1px solid var(--border-subtle);
+        font-size: 13px; position: sticky; top: 0; background: #f6f7f9; z-index: 10;
+      }
+      .demo-nav a { color: #2563eb; text-decoration: none; }
+      .demo-nav a.active { color: #111; font-weight: 600; text-decoration: underline; }
+      /* Spinner on DatabaseTree's "Loading…" placeholder rows. */
+      .solid-tree-loading::before {
+        content: ""; display: inline-block; width: 11px; height: 11px; margin-right: 6px;
+        vertical-align: -1px; border: 2px solid #cbd5e1; border-top-color: #2563eb;
+        border-radius: 50%; animation: solid-tree-spin 0.6s linear infinite;
+      }
+      @keyframes solid-tree-spin { to { transform: rotate(360deg); } }
       .multiline-tree {
         --tree-label-white-space: normal;
         --tree-row-align-items: flex-start;
