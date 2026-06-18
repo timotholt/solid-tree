@@ -26,6 +26,8 @@ export interface SupabaseSourceConfig {
   schema?: string;
   /** Subscribe to realtime row changes. Default true. */
   realtime?: boolean;
+  /** Page size for the .range() pagination that works around PostgREST's row cap. Default 1000. */
+  pageSize?: number;
 }
 
 /**
@@ -41,13 +43,23 @@ export function supabaseSource(cfg: SupabaseSourceConfig): TreeSource {
   const order = cfg.orderBy ?? { column: idCol, ascending: true };
   const parentCol = cfg.parentColumn;
 
+  // PostgREST caps a single response at `db-max-rows` (1000 on Supabase by default),
+  // so a plain select silently truncates large tables. Page through with .range()
+  // until a short page comes back. (Big FLAT lists should really paginate lazily;
+  // this at least never drops rows. Use a parentColumn hierarchy for huge trees.)
+  const PAGE = cfg.pageSize ?? 1000;
   const fetchWhere = async (apply: (q: any) => any): Promise<TreeNodeData[]> => {
-    const base = cfg.client.from(cfg.table).select(sel);
-    const { data, error } = await apply(base).order(order.column, {
-      ascending: order.ascending ?? true,
-    });
-    if (error) throw error;
-    return (data ?? []).map(cfg.toNode);
+    const rows: Record<string, any>[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const q = apply(cfg.client.from(cfg.table).select(sel))
+        .order(order.column, { ascending: order.ascending ?? true })
+        .range(from, from + PAGE - 1);
+      const { data, error } = await q;
+      if (error) throw error;
+      rows.push(...(data ?? []));
+      if (!data || data.length < PAGE) break;
+    }
+    return rows.map(cfg.toNode);
   };
 
   const source: TreeSource = {
