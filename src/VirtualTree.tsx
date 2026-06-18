@@ -8,9 +8,10 @@ import { TreeRow } from "./TreeRow.jsx";
 
 export interface VirtualTreeProps extends TreeProps {
   /**
-   * Estimated row height (px) before measurement. Default 28 (a single-line row).
-   * Tune it to your COMMON row — multi-line rows should pass a larger value, or
-   * off-screen/just-rendered rows briefly use this estimate before measuring.
+   * INITIAL row-height guess (px) before anything is measured. Default 28. You
+   * rarely need to set it — once rows render, the estimate self-tunes to a running
+   * average of measured heights. Set it only to reduce the very first paint's guess
+   * (e.g. ~60 for tall multi-line rows).
    */
   estimateSize?: number;
   /** Rows rendered beyond the visible window. Default 6. */
@@ -48,13 +49,29 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
     if (viewportEl) setScrollEl(viewportEl);
   });
 
+  // Self-tuning estimate: the `estimateSize` prop seeds the guess for un-measured
+  // rows, then a running average of actually-measured heights takes over — so
+  // off-screen / just-rendered rows are estimated at ~the real height (no oversized
+  // gaps from a stale constant). Measured rows always use their own cached height;
+  // this only affects the estimate for rows not yet measured.
+  let sizeSum = 0;
+  let sizeCount = 0;
+  const [estimate, setEstimate] = createSignal(props.estimateSize ?? 28);
+  const recordSize = (h: number) => {
+    if (h > 0) {
+      sizeSum += h;
+      sizeCount += 1;
+      setEstimate(Math.round(sizeSum / sizeCount));
+    }
+  };
+
   // Created once (never in a memo). Reactive fields via getters.
   const virtualizer = createVirtualizer({
     get count() {
       return rows().length;
     },
     getScrollElement: () => scrollEl() ?? null,
-    estimateSize: () => props.estimateSize ?? 28,
+    estimateSize: () => estimate(),
     getItemKey: (i: number) => rows()[i]?.node.id ?? i, // persistent id = measurement cache key
     get overscan() {
       return props.overscan ?? 6;
@@ -99,7 +116,11 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
                   // reentrancy crash and lands before paint (no estimate flash).
                   const remeasure = () => {
                     const node = el;
-                    if (node) queueMicrotask(() => virtualizer.measureElement(node));
+                    if (node)
+                      queueMicrotask(() => {
+                        virtualizer.measureElement(node);
+                        recordSize(node.getBoundingClientRect().height); // feed the estimate
+                      });
                   };
                   createEffect(() => {
                     row()?.node.id; // re-run when this slot renders a different node
