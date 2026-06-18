@@ -7,7 +7,11 @@ import { flattenVisible } from "./search.js";
 import { TreeRow } from "./TreeRow.jsx";
 
 export interface VirtualTreeProps extends TreeProps {
-  /** Estimated row height (px) before measurement. Tune to the common row. Default 32. */
+  /**
+   * Estimated row height (px) before measurement. Default 28 (a single-line row).
+   * Tune it to your COMMON row — multi-line rows should pass a larger value, or
+   * off-screen/just-rendered rows briefly use this estimate before measuring.
+   */
   estimateSize?: number;
   /** Rows rendered beyond the visible window. Default 6. */
   overscan?: number;
@@ -50,7 +54,7 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
       return rows().length;
     },
     getScrollElement: () => scrollEl() ?? null,
-    estimateSize: () => props.estimateSize ?? 32,
+    estimateSize: () => props.estimateSize ?? 28,
     getItemKey: (i: number) => rows()[i]?.node.id ?? i, // persistent id = measurement cache key
     get overscan() {
       return props.overscan ?? 6;
@@ -83,15 +87,30 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
             <div style={`position:relative; width:100%; height:${virtualizer.getTotalSize()}px`}>
               <For each={virtualizer.getVirtualItems()}>
                 {(vi) => {
+                  let el: HTMLDivElement | undefined;
                   const row = () => rows()[vi.index];
+                  // The virtualizer reconciles rows BY INDEX, so a slot's <div> is
+                  // REUSED when expand/scroll puts a different node in it — the ref
+                  // fires only once. Measurements are cached by node id, so a reused
+                  // row's new node would otherwise keep the estimate (only a
+                  // scroll-out/in that recreates the DOM measured it). So measure
+                  // BOTH on mount (ref) AND whenever the slot's node id changes
+                  // (effect). Microtask defer dodges the measure→notify→re-render
+                  // reentrancy crash and lands before paint (no estimate flash).
+                  const remeasure = () => {
+                    const node = el;
+                    if (node) queueMicrotask(() => virtualizer.measureElement(node));
+                  };
+                  createEffect(() => {
+                    row()?.node.id; // re-run when this slot renders a different node
+                    remeasure();
+                  });
                   return (
                     <div
                       data-index={vi.index}
-                      ref={(node) => {
-                        // data-index in the ref (initial measure) + reactive attr above
-                        // (kept correct on row reuse); defer measureElement out of render.
-                        node.setAttribute("data-index", String(vi.index));
-                        requestAnimationFrame(() => virtualizer.measureElement(node));
+                      ref={(n) => {
+                        el = n;
+                        remeasure();
                       }}
                       style={`position:absolute; top:0; left:0; width:100%; transform:translateY(${vi.start}px)`}
                     >
