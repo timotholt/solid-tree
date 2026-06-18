@@ -17,13 +17,18 @@ const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
 // Tree dimensions: Region × Branch × Account. Default 10×10×20 = 2000 leaves.
 const I = (k, d) => Math.max(1, Number(process.env[k] ?? d) | 0);
 const [REGIONS, BRANCHES, ACCOUNTS] = [I("SEED_REGIONS", 10), I("SEED_BRANCHES", 10), I("SEED_ACCOUNTS", 20)];
-const migration = readFileSync(join(HERE, "migrations", "0001_scratch_lock.sql"), "utf8");
+// All forward migrations, in order (skip the *_down.sql teardown files).
+const migrations = ["0001_scratch_lock.sql", "0002_scratch_outline.sql"];
 
 try {
-  console.log("→ applying migration via " + method() + " …");
-  await runSql(migration);
-  console.log(`→ seeding tree ${REGIONS}×${BRANCHES}×${ACCOUNTS} (${REGIONS * BRANCHES * ACCOUNTS} leaves)…`);
+  for (const m of migrations) {
+    console.log(`→ applying ${m} via ${method()} …`);
+    await runSql(readFileSync(join(HERE, "migrations", m), "utf8"));
+  }
+  console.log(`→ seeding bank tree ${REGIONS}×${BRANCHES}×${ACCOUNTS} (${REGIONS * BRANCHES * ACCOUNTS} leaves)…`);
   await runSql(`select public.scratch_seed_tree(${REGIONS}, ${BRANCHES}, ${ACCOUNTS});`);
+  console.log("→ seeding outline starter…");
+  await runSql(`select public.outline_seed();`);
   console.log("✅ schema applied + seeded.");
 } catch (e) {
   console.error("💥 schema apply failed:\n  " + e.message);

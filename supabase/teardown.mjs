@@ -5,11 +5,14 @@ import { dirname, join } from "node:path";
 import { runSql, method } from "./run-sql.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const sql = readFileSync(join(HERE, "migrations", "0001_scratch_lock_down.sql"), "utf8");
+// Reverse order of apply (drop dependents first).
+const downs = ["0002_scratch_outline_down.sql", "0001_scratch_lock_down.sql"];
 
 try {
-  console.log("→ teardown via " + method() + " …");
-  await runSql(sql);
+  for (const d of downs) {
+    console.log(`→ teardown ${d} via ${method()} …`);
+    await runSql(readFileSync(join(HERE, "migrations", d), "utf8"));
+  }
   console.log("✅ removed.");
 } catch (e) {
   console.error("💥 teardown failed: " + e.message);
