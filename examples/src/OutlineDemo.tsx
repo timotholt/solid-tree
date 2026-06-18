@@ -71,6 +71,11 @@ const OutlineColumn: Component<{ client: SupabaseClient; uid: string; accent: st
     parentColumn: "parent_id",
     orderBy: { column: "created_at" },
     lockRpc: LOCK_RPC,
+    // Can't even select a node another user holds — clicking it is a no-op.
+    canSelect: (n) => {
+      const lb = n.payload?.lockedBy as string | null;
+      return !(lb && lb !== props.uid);
+    },
     // Auto-lock on select (atomic — refused if another user holds it; moving to another
     // node releases the prior one). No manual lock/unlock buttons.
     onSelect: async (n) => {

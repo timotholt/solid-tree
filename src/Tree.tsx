@@ -27,6 +27,7 @@ export function coreOptionsFromProps(props: CoreViewProps): CoreControllerOption
     matcher: props.matcher,
     filterMode: props.filterMode,
     onSelect: props.onSelect,
+    canSelect: props.canSelect,
     onToggle: props.onToggle,
     storageKey: props.storageKey,
     storagePrefix: props.storagePrefix,

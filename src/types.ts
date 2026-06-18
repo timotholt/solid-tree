@@ -39,6 +39,8 @@ export interface TreeProps {
   /** localStorage key prefix; final key is `${storagePrefix}-${storageKey}`. Default: "tree". */
   storagePrefix?: string;
   onSelect: (node: TreeNodeData) => void;
+  /** Veto selection of a node (return false to make it unselectable, e.g. locked by another user). */
+  canSelect?: (node: TreeNodeData) => boolean;
   onToggle?: (id: string, expanded: boolean) => void;
   renderActionNode?: (node: TreeNodeData) => JSX.Element;
   renderLabel?: (node: TreeNodeData) => JSX.Element;

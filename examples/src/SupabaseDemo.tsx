@@ -70,6 +70,11 @@ const ColumnInner: Component<{ client: SupabaseClient; uid: string; name: string
     parentColumn: "parent_id",
     orderBy: { column: "label" },
     onLockLost: () => setHeldLabel(null),
+    // Can't select an account another user holds.
+    canSelect: (n) => {
+      const lb = n.payload?.lockedBy as string | null;
+      return !(lb && lb !== props.uid);
+    },
     onSelect: async (n) => {
       // Groups aren't lockable — release whatever we held. (Expand = chevron, not select.)
       if (!n.payload?.leaf) {
@@ -77,8 +82,6 @@ const ColumnInner: Component<{ client: SupabaseClient; uid: string; name: string
         await tree.releaseLock();
         return;
       }
-      const lb = n.payload?.lockedBy as string | null;
-      if (lb && lb !== props.uid) return; // locked by the other user
       const got = await tree.acquireLock(n.id);
       setHeldLabel(got ? n.label.split(" — ")[0] : null);
     },

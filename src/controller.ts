@@ -35,6 +35,8 @@ export interface CoreControllerOptions {
   matcher?: TreeMatcher;
   filterMode?: "prune" | "dim";
   onSelect?: (node: TreeNodeData) => void;
+  /** Veto selection of a node (return false → unselectable, e.g. locked by another user). */
+  canSelect?: (node: TreeNodeData) => boolean;
   onToggle?: (id: string, expanded: boolean) => void;
   /** Opt-in expand-state persistence (localStorage). Omit = in-memory only. */
   storageKey?: string;
@@ -53,6 +55,7 @@ export const pickCore = (o: CoreControllerOptions): CoreControllerOptions => ({
   matcher: o.matcher,
   filterMode: o.filterMode,
   onSelect: o.onSelect,
+  canSelect: o.canSelect,
   onToggle: o.onToggle,
   storageKey: o.storageKey,
   storagePrefix: o.storagePrefix,
@@ -129,6 +132,7 @@ export function createTreeController(opts: TreeControllerOptions): TreeControlle
   const selectedId = () => (opts.selectedId ? opts.selectedId() : selSig());
 
   const selectNode = (node: TreeNodeData) => {
+    if (opts.canSelect && !opts.canSelect(node)) return; // vetoed (e.g. locked by another user)
     setSelSig(node.id);
     opts.onSelect?.(node);
   };
