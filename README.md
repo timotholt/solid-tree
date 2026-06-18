@@ -14,16 +14,23 @@ single Solid instance.
 
 ## Install (git dependency)
 
-No registry needed — install straight from the tagged git repo:
+No registry needed — install straight from the git repo. **Use a `#semver:` range**
+so `npm install`/`npm update` pulls the newest matching tag automatically (this is
+how you keep consumers from getting stuck on an old version):
 
 ```jsonc
 // package.json
 {
   "dependencies": {
-    "@timotholt/tree": "github:timotholt/solid-tree#v0.1.0"
+    "@timotholt/tree": "github:timotholt/solid-tree#semver:^0.7.0"
   }
 }
 ```
+
+`#semver:^0.7.0` resolves to the highest `0.x` tag ≥ 0.7.0. Pin an exact tag
+(`#v0.7.0`) instead only when you want fully reproducible installs. (Plain git deps
+can't be force-updated server-side — the consumer controls the ref; the semver
+range is what lets `npm update` advance them.)
 
 Then `npm install`. Consumers must use Vite + `vite-plugin-solid` (the standard
 SolidJS setup) so the `solid` export condition resolves and the JSX compiles.
@@ -182,6 +189,11 @@ snapshots them; `<For>` is keyed by object **reference** (`===`), not id.
 | mutate a plain object in place (no new ref / signal write) | **stale — nothing updates.** Don't. |
 | immutable replace (new array + new node object, then `setData`) | that row remounts with new content ✓ |
 | `createStore` + `setStore(path, field, val)` | fine-grained; just that text updates, no remount ✓✓ |
+
+**Collapsing a branch that hides the selection moves selection to that branch** —
+e.g. with a child selected, collapsing its parent (chevron or row) reselects the
+parent so the selection never disappears into a collapsed node. (`onSelect` fires
+with the parent.)
 
 **Expand state and selection are keyed by `id`** (Tree's own signal + your
 `selectedId`), not by reference — so title/badge/count edits keep expand +

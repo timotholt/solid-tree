@@ -4,7 +4,7 @@ SolidJS tree-view component. This file is the complete usage contract. Read it, 
 
 ## Install
 ```jsonc
-"@timotholt/tree": "github:timotholt/solid-tree#v0.2.0"
+"@timotholt/tree": "github:timotholt/solid-tree#semver:^0.7.0"
 ```
 Consumer MUST be SolidJS + `vite-plugin-solid`. `solid-js` is a peer dep (single Solid instance). The package ships raw source under the `solid` export condition; consumers compile it. Add `optimizeDeps: { exclude: ['@timotholt/tree'] }` to the consumer's `vite.config`.
 
@@ -78,6 +78,7 @@ Also exported: `Chevron`, `storage`, type `TreeMatcher`, type `TreeProps`.
 - **Only expand/collapse state is persisted** (`Record<nodeId, boolean>`), nothing else.
 - **Row click semantics** (VS Code/Finder): unexpanded → select + expand; expanded & unselected → select only; expanded & selected → collapse. The chevron always just toggles.
 - **Auto-expand to selection:** setting `selectedId` to a nested node expands its ancestors.
+- **Collapse reselects:** collapsing a node whose descendant is selected moves selection to that node (fires `onSelect`), so selection never hides inside a collapsed branch.
 - **`type` is opaque** to the component — it's your routing tag, echoed back in `onSelect`.
 - **`renderActionNode` clicks don't select the row** (slot stops propagation). Return `null`/falsy to skip a row's slot.
 

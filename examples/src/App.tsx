@@ -39,10 +39,10 @@ const IconsDemo: Component = () => {
   const [sel, setSel] = createSignal<string | null>(null);
   const data: TreeNodeData[] = [
     {
-      id: "cardio", label: "Cardiovascular", type: "group", iconLeft: "🫀", count: 2,
+      id: "toyota", label: "Toyota", type: "group", iconLeft: "🚗", count: 2,
       children: [
-        { id: "mi", label: "MI", type: "item", iconLeft: "📄", count: 4 },
-        { id: "chf", label: "Heart failure", type: "item", iconLeft: "📄", iconRight: "⭐" },
+        { id: "corolla", label: "Corolla", type: "item", iconLeft: "📄", count: 4 },
+        { id: "supra", label: "Supra", type: "item", iconLeft: "📄", iconRight: "⭐" },
       ],
     },
   ];
@@ -51,12 +51,12 @@ const IconsDemo: Component = () => {
 
 // ── 3. Badges / actions via renderActionNode ─────────────────────────────────
 const ActionsDemo: Component = () => {
-  const [sel, setSel] = createSignal<string | null>("draft");
+  const [sel, setSel] = createSignal<string | null>("listing1");
   const [log, setLog] = createSignal("");
   const data: TreeNodeData[] = [
-    { id: "draft", label: "Draft case", type: "item", status: "new" },
-    { id: "review", label: "In review", type: "item", count: 3 },
-    { id: "done", label: "Published", type: "item" },
+    { id: "listing1", label: "2024 Corolla", type: "item", status: "new" },
+    { id: "listing2", label: "2023 Civic", type: "item", count: 3 },
+    { id: "listing3", label: "2022 F-150", type: "item" },
   ];
   return (
     <>
@@ -144,50 +144,50 @@ const EphemeralDemo: Component = () => {
   return <Tree data={data} selectedId={sel()} onSelect={(n) => setSel(n.id)} />;
 };
 
-// Shared sample tree for the search demos.
-const medTree = (): TreeNodeData[] => [
+// Shared sample tree for the search demos (chassis codes in payload).
+const carTree = (): TreeNodeData[] => [
   {
-    id: "cardio", label: "Cardiovascular", type: "group",
+    id: "toyota", label: "Toyota", type: "group",
     children: [
-      { id: "mi", label: "Myocardial infarction", type: "item", payload: { code: "I21" } },
-      { id: "chf", label: "Heart failure", type: "item", payload: { code: "I50" } },
-      { id: "afib", label: "Atrial fibrillation", type: "item", payload: { code: "I48" } },
+      { id: "corolla", label: "Corolla", type: "item", payload: { code: "E210" } },
+      { id: "camry", label: "Camry", type: "item", payload: { code: "XV70" } },
+      { id: "supra", label: "Supra", type: "item", payload: { code: "A90" } },
     ],
   },
   {
-    id: "resp", label: "Respiratory", type: "group",
+    id: "honda", label: "Honda", type: "group",
     children: [
-      { id: "copd", label: "COPD", type: "item", payload: { code: "J44" } },
-      { id: "pna", label: "Pneumonia", type: "item", payload: { code: "J18" } },
+      { id: "civic", label: "Civic", type: "item", payload: { code: "FE" } },
+      { id: "crv", label: "CR-V", type: "item", payload: { code: "RW" } },
     ],
   },
   {
-    id: "renal", label: "Renal", type: "group",
-    children: [{ id: "aki", label: "Acute kidney injury", type: "item", payload: { code: "N17" } }],
+    id: "ford", label: "Ford", type: "group",
+    children: [{ id: "f150", label: "F-150", type: "item", payload: { code: "P702" } }],
   },
 ];
 
 // ── 8. Search: prune + highlight (default matcher) ────────────────────────────
 const SearchDemo: Component = () => {
-  const [q, setQ] = createSignal("art");
+  const [q, setQ] = createSignal("cor");
   const [sel, setSel] = createSignal<string | null>(null);
   return (
     <>
       <input class="search" placeholder="filter by label…" value={q()} onInput={(e) => setQ(e.currentTarget.value)} />
-      <Tree data={medTree()} searchQuery={q()} selectedId={sel()} storageKey="search" onSelect={(n) => setSel(n.id)} />
+      <Tree data={carTree()} searchQuery={q()} selectedId={sel()} storageKey="search" onSelect={(n) => setSel(n.id)} />
     </>
   );
 };
 
 // ── 9. Search: dim mode + custom matcher (searches payload.code) ──────────────
 const SearchDimDemo: Component = () => {
-  const [q, setQ] = createSignal("I");
+  const [q, setQ] = createSignal("A90");
   const [sel, setSel] = createSignal<string | null>(null);
   return (
     <>
-      <input class="search" placeholder="match label OR ICD code…" value={q()} onInput={(e) => setQ(e.currentTarget.value)} />
+      <input class="search" placeholder="match label OR chassis code…" value={q()} onInput={(e) => setQ(e.currentTarget.value)} />
       <Tree
-        data={medTree()} searchQuery={q()} selectedId={sel()}
+        data={carTree()} searchQuery={q()} selectedId={sel()}
         storageKey="searchdim" filterMode="dim"
         matcher={(n, query) => {
           const s = query.toLowerCase();
@@ -201,23 +201,23 @@ const SearchDimDemo: Component = () => {
 
 // ── 10. Theming via tokens + data-attributes ─────────────────────────────────
 const ThemedDemo: Component = () => {
-  const [sel, setSel] = createSignal<string | null>("mi");
+  const [sel, setSel] = createSignal<string | null>("corolla");
   return (
     <div class="themed-tree">
-      <Tree data={medTree()} selectedId={sel()} storageKey="themed" onSelect={(n) => setSel(n.id)} />
+      <Tree data={carTree()} selectedId={sel()} storageKey="themed" onSelect={(n) => setSel(n.id)} />
     </div>
   );
 };
 
 // ── 9. Multi-line rows (tokens + renderLabel) ─────────────────────────────────
 const MultiLineDemo: Component = () => {
-  const [sel, setSel] = createSignal<string | null>("q1");
+  const [sel, setSel] = createSignal<string | null>("v1");
   const data: TreeNodeData[] = [
     {
-      id: "questions", label: "Questions", type: "group",
+      id: "inventory", label: "Inventory", type: "group",
       children: [
-        { id: "q1", label: "Q1", type: "item", payload: { stem: "A 54 y/o presents with crushing substernal chest pain radiating to the jaw…", meta: "Cardiovascular · Hard", status: "PENDING REVIEW" } },
-        { id: "q2", label: "Q2", type: "item", payload: { stem: "Post-op day 2, urine output has fallen to 15 mL/hr over 4 hours…", meta: "Renal · Medium", status: "PUBLISHED" } },
+        { id: "v1", label: "v1", type: "item", payload: { stem: "2024 Toyota Corolla LE — 1.8L hybrid, 12k miles, one owner, clean title…", meta: "Sedan · Automatic · FWD", status: "IN STOCK" } },
+        { id: "v2", label: "v2", type: "item", payload: { stem: "2021 Ford F-150 XLT — 3.5L EcoBoost V6, 38k miles, tow package…", meta: "Truck · 4WD", status: "SOLD" } },
       ],
     },
   ];
@@ -246,7 +246,7 @@ export const App: Component = () => (
     <h1>@timotholt/tree</h1>
     <p class="lede">
       Live examples. Each card shows the rendered component next to the exact code
-      that produced it. Install: <code>github:timotholt/solid-tree#v0.1.0</code>
+      that produced it. Install: <code>github:timotholt/solid-tree#semver:^0.7.0</code>
     </p>
 
     <Demo
@@ -346,7 +346,7 @@ export const App: Component = () => (
 
     <Demo
       title="7c. Search — dim mode + custom matcher"
-      blurb="filterMode='dim' keeps the whole tree and fades non-matches instead of removing them. A custom matcher is the comparator seam — here it matches label OR payload.code (ICD), so Tree never needs to know payload's shape. Try 'I21' or 'copd'."
+      blurb="filterMode='dim' keeps the whole tree and fades non-matches instead of removing them. A custom matcher is the comparator seam — here it matches label OR payload.code (chassis code), so Tree never needs to know payload's shape. Try 'A90' or 'civic'."
       code={`<Tree
   searchQuery={q()}
   filterMode="dim"
@@ -376,7 +376,7 @@ export const App: Component = () => (
 
     <Demo
       title="9. Multi-line rows"
-      blurb="Rows aren't fixed-height — they grow with content. Set --tree-label-white-space:normal + --tree-row-align-items:flex-start, then return a stacked block from renderLabel for 2/3/N-line items (e.g. a question stem + meta + status). Selection, chevron, indent all still work on the taller rows."
+      blurb="Rows aren't fixed-height — they grow with content. Set --tree-label-white-space:normal + --tree-row-align-items:flex-start, then return a stacked block from renderLabel for 2/3/N-line items (e.g. a listing title + specs + status). Selection, chevron, indent all still work on the taller rows."
       code={`/* on the container */
 .list { --tree-label-white-space: normal;
         --tree-row-align-items: flex-start; }

@@ -7,6 +7,7 @@ import {
   createMemo,
   createContext,
   useContext,
+  untrack,
   onMount,
   JSX,
 } from "solid-js";
@@ -186,6 +187,21 @@ function collectIds(nodes: TreeNodeData[], acc: Set<string>): Set<string> {
     if (n.children) collectIds(n.children, acc);
   }
   return acc;
+}
+
+function findNode(nodes: TreeNodeData[], id: string): TreeNodeData | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    if (n.children) {
+      const found = findNode(n.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function containsDescendant(node: TreeNodeData, id: string): boolean {
+  return !!node.children && node.children.some((c) => c.id === id || containsDescendant(c, id));
 }
 
 /** One row in the linearized, currently-visible view of the tree. */
@@ -398,10 +414,13 @@ export const Tree: Component<TreeProps> = (props) => {
     });
   });
 
-  // Auto-expand ancestors to reveal the current selection.
+  // Auto-expand ancestors to reveal the current selection. Tracks ONLY
+  // selectedId + data — the expand reads/writes are untracked, so a manual
+  // collapse never retriggers this (which would otherwise snap the node back open).
   createEffect(() => {
     const id = props.selectedId;
-    if (!id || !props.data) return;
+    const data = props.data;
+    if (!id || !data) return;
 
     const findAndExpand = (nodes: TreeNodeData[], targetId: string): boolean => {
       for (const node of nodes) {
@@ -419,13 +438,23 @@ export const Tree: Component<TreeProps> = (props) => {
       return false;
     };
 
-    findAndExpand(props.data, id);
+    untrack(() => findAndExpand(data, id));
   });
 
   const handleToggle = (id: string) => {
     const newState = !expanded()[id];
     setExpanded((prev) => ({ ...prev, [id]: newState }));
     if (props.onToggle) props.onToggle(id, newState);
+
+    // Collapsing a node that hides the current selection → move selection to it,
+    // so the selection never disappears into a collapsed branch.
+    if (!newState) {
+      const sel = props.selectedId;
+      if (sel && sel !== id) {
+        const node = findNode(props.data, id);
+        if (node && containsDescendant(node, sel)) props.onSelect(node);
+      }
+    }
   };
 
   // ── Search derivation ────────────────────────────────────────────────────
