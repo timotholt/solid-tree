@@ -1,5 +1,5 @@
 import { Component, For, Show, createMemo, createSignal, createEffect, onMount } from "solid-js";
-import { createVirtualizer } from "@tanstack/solid-virtual";
+import { createVirtualizer } from "./createVirtualizer.js"; // #1203-patched (preserves measurements on expand)
 import { TreeContext } from "./context.js";
 import { type TreeProps } from "./types.js";
 import { createTreeState } from "./state.js";
@@ -51,7 +51,7 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
     },
     getScrollElement: () => scrollEl() ?? null,
     estimateSize: () => props.estimateSize ?? 32,
-    getItemKey: (i) => rows()[i]?.node.id ?? i, // persistent id = measurement cache key
+    getItemKey: (i: number) => rows()[i]?.node.id ?? i, // persistent id = measurement cache key
     get overscan() {
       return props.overscan ?? 6;
     },
