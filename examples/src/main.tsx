@@ -5,20 +5,23 @@ import { VirtualDemo } from "./VirtualDemo.jsx";
 import { DatabaseDemo } from "./DatabaseDemo.jsx";
 import { DatabaseDemo2 } from "./DatabaseDemo2.jsx";
 import { SupabaseDemo } from "./SupabaseDemo.jsx";
+import { ControllerDemo } from "./ControllerDemo.jsx";
 import { Nav } from "./Nav.jsx";
 
 const p = new URLSearchParams(location.search);
 const View = p.has("spike")
   ? Spike
-  : p.has("virtual")
-    ? VirtualDemo
-    : p.has("supabase")
-      ? SupabaseDemo
-      : p.has("database2")
-        ? DatabaseDemo2
-        : p.has("database")
-          ? DatabaseDemo
-          : App;
+  : p.has("controller")
+    ? ControllerDemo
+    : p.has("virtual")
+      ? VirtualDemo
+      : p.has("supabase")
+        ? SupabaseDemo
+        : p.has("database2")
+          ? DatabaseDemo2
+          : p.has("database")
+            ? DatabaseDemo
+            : App;
 
 render(
   () => (
