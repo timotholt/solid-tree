@@ -51,8 +51,9 @@ begin
         values ('Branch ' || lpad(r::text,2,'0') || '-' || lpad(b::text,2,'0'), 'group', rid)
         returning id into bid;
       for a in 0.._accounts - 1 loop
+        -- full path so it's unambiguous: region-branch-account, e.g. "Account 01-01-0001"
         insert into scratch_lock_demo(label, kind, parent_id, balance)
-          values ('Account ' || lpad(r::text,2,'0') || lpad(b::text,2,'0') || lpad(a::text,3,'0'),
+          values ('Account ' || lpad(r::text,2,'0') || '-' || lpad(b::text,2,'0') || '-' || lpad(a::text,4,'0'),
                   'leaf', bid, 0);
       end loop;
     end loop;
