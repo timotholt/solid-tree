@@ -122,6 +122,37 @@ async function main() {
   // Cleanup.
   await b.rpc("release_lock", { _id: X });
 
+  // ── Outline (scratch_outline): lock + structural-edit guards ─────────────────
+  await a.rpc("outline_seed");
+  const orows = ((await a.from("scratch_outline").select("id,label").limit(50)).data ?? []) as any[];
+  const RM = orows.find((r) => r.label === "Roadmap")?.id as string;
+  const Q3 = orows.find((r) => r.label === "Q3 goals")?.id as string;
+  const NOTES = orows.find((r) => r.label === "Notes")?.id as string;
+  const oLockedBy = async (id: string) =>
+    ((await b.from("scratch_outline").select("locked_by").eq("id", id).single()).data as any)?.locked_by ?? null;
+  const oLabel = async (id: string) =>
+    ((await b.from("scratch_outline").select("label").eq("id", id).single()).data as any)?.label;
+
+  ok((((await b.rpc("outline_lock", { _id: RM })).data) as any)?.locked_by === bId, "outline: B can lock a free node");
+  await a.rpc("outline_lock", { _id: RM });
+  ok((await oLockedBy(RM)) === bId, "outline: A cannot lock B's node");
+  const oSteal = await a.from("scratch_outline").update({ locked_by: aId }).eq("id", RM).select();
+  ok((oSteal.data?.length ?? 0) === 0 && (await oLockedBy(RM)) === bId, "outline: A cannot steal via direct UPDATE");
+  await a.rpc("outline_unlock", { _id: RM });
+  ok((await oLockedBy(RM)) === bId, "outline: A's unlock does NOT release B's lock");
+  await a.rpc("outline_rename", { _id: RM, _label: "HACKED" });
+  ok((await oLabel(RM)) !== "HACKED", "outline: A cannot rename a node B holds");
+  ok(((await a.rpc("outline_remove", { _id: RM })).data === false) && (await oLockedBy(RM)) === bId,
+    "outline: A cannot remove a node B holds");
+  await b.rpc("outline_lock", { _id: Q3 }); // B now holds the child (one editor → RM released)
+  ok((await a.rpc("outline_remove", { _id: RM })).data === false,
+    "outline: A cannot remove a parent whose descendant B holds (subtree)");
+  const oAnon = await anon.rpc("outline_lock", { _id: NOTES });
+  ok(!!oAnon.error || (oAnon.data as any)?.locked_by == null, "outline: anon cannot lock");
+  await b.rpc("outline_rename", { _id: Q3, _label: "Q3 renamed" });
+  ok((await oLabel(Q3)) === "Q3 renamed", "outline: holder CAN rename its own node");
+  await b.rpc("outline_unlock_all");
+
   // ── Tech-debt cases: need service-role for privileged setup (aging locks,
   //    minting racers, promoting an admin). Skipped with a notice if absent. ────
   if (!SERVICE) {
@@ -171,6 +202,34 @@ async function main() {
     ok(!!nonAdmin.error && (await readRow(X))?.locked_by === bId, "admin: non-admin force-release DENIED");
     await adminClient.rpc("admin_force_release", { _id: X });
     ok((await readRow(X))?.locked_by == null, "admin: admin CAN force-release any lock");
+
+    // ── Outline lock: expiry, race, admin force-release ────────────────────────
+    await a.rpc("outline_seed");
+    const oid = ((await admin.from("scratch_outline").select("id").eq("label", "Roadmap").single()).data as any).id;
+    const oHolder = async () =>
+      ((await admin.from("scratch_outline").select("locked_by").eq("id", oid).single()).data as any)?.locked_by ?? null;
+
+    await admin.from("scratch_outline")
+      .update({ locked_by: bId, locked_at: new Date(Date.now() - 5 * 60_000).toISOString() }).eq("id", oid);
+    await a.rpc("outline_lock", { _id: oid });
+    ok((await oHolder()) === aId, "outline expiry: lock past TTL is grabbable");
+    await a.rpc("outline_unlock", { _id: oid });
+
+    let oRaceFails = 0;
+    for (let round = 0; round < 3; round++) {
+      await admin.from("scratch_outline").update({ locked_by: null, locked_at: null }).eq("id", oid);
+      const res = await Promise.all(racers.map((r) => r.client.rpc("outline_lock", { _id: oid })));
+      if (res.filter((r, i) => (r.data as any)?.locked_by === racers[i].id).length !== 1) oRaceFails++;
+    }
+    ok(oRaceFails === 0, "outline race: exactly one winner across 3 rounds");
+    await admin.from("scratch_outline").update({ locked_by: null, locked_at: null }).eq("id", oid);
+
+    await b.rpc("outline_lock", { _id: oid });
+    const oNon = await a.rpc("outline_admin_force_release", { _id: oid });
+    ok(!!oNon.error && (await oHolder()) === bId, "outline admin: non-admin force-release DENIED");
+    await adminClient.rpc("outline_admin_force_release", { _id: oid });
+    ok((await oHolder()) == null, "outline admin: admin CAN force-release");
+    await a.rpc("outline_seed");
   }
 
   console.log(`\n${fail === 0 ? "✅ ALL PASS" : "🔴 FAILURES"}: ${pass} passed, ${fail} failed`);

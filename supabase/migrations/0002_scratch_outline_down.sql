@@ -16,4 +16,5 @@ drop function if exists public.outline_lock(uuid);
 drop function if exists public.outline_touch(uuid);
 drop function if exists public.outline_unlock(uuid);
 drop function if exists public.outline_unlock_all();
+drop function if exists public.outline_admin_force_release(uuid);
 drop table if exists public.scratch_outline;

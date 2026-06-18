@@ -141,17 +141,30 @@ begin
   return true;
 end $$;
 
+-- ADMIN force-release: clear ANY lock, admin only (app_metadata.app_admin in the JWT —
+-- unforgeable). The testable core of the override; the Edge Function adds session-revoke.
+create or replace function public.outline_admin_force_release(_id uuid)
+returns public.scratch_outline language plpgsql security definer set search_path = public as $$
+declare r public.scratch_outline;
+begin
+  if coalesce((auth.jwt() -> 'app_metadata' ->> 'app_admin')::boolean, false) is not true then
+    raise exception 'not authorized: admin only' using errcode = '42501';
+  end if;
+  update scratch_outline set locked_by = null, locked_at = null where id = _id returning * into r;
+  return r;
+end $$;
+
 revoke all on function
   public.outline_seed(), public.outline_add(uuid, text), public.outline_rename(uuid, text),
   public.outline_remove(uuid), public.outline_held_by_other(uuid),
   public.outline_lock(uuid), public.outline_touch(uuid), public.outline_unlock(uuid),
-  public.outline_unlock_all()
+  public.outline_unlock_all(), public.outline_admin_force_release(uuid)
   from public, anon;
 grant execute on function
   public.outline_seed(), public.outline_add(uuid, text), public.outline_rename(uuid, text),
   public.outline_remove(uuid), public.outline_held_by_other(uuid),
   public.outline_lock(uuid), public.outline_touch(uuid), public.outline_unlock(uuid),
-  public.outline_unlock_all()
+  public.outline_unlock_all(), public.outline_admin_force_release(uuid)
   to authenticated;
 
 -- RLS: read for any authed (gates Realtime); NO direct writes — all via the RPCs.
