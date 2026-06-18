@@ -89,26 +89,41 @@ function createBank() {
         emit(a);
       }
     },
+    // Release everything this user holds (move cursor away / explicit unlock).
+    release(user: string) {
+      for (const x of accounts.values()) {
+        if (x.lockedBy === user) {
+          x.lockedBy = null;
+          emit(x);
+        }
+      }
+    },
   };
 }
 
 type Bank = ReturnType<typeof createBank>;
 
 const Column: Component<{ bank: Bank; user: string; accent: string }> = (props) => {
-  const [cursor, setCursor] = createSignal<string | null>(null);
+  const [cursor, setCursor] = createSignal<string | null>(null); // selected node (branch or account)
+  const [held, setHeld] = createSignal<string | null>(null); // the account we currently lock
   const [domRows, setDomRows] = createSignal(0);
+  const releaseAll = () => {
+    props.bank.release(props.user);
+    setHeld(null);
+  };
   return (
     <div style="flex:1;min-width:300px">
       <h3 style={`margin:0 0 6px;color:${props.accent}`}>{props.user}'s view</h3>
       <div style="display:flex;gap:6px;margin-bottom:8px;font-size:13px;align-items:center">
-        <span style="opacity:.7">{domRows()} in DOM · {cursor() ?? "no acct"}</span>
+        <span style="opacity:.7">{domRows()} in DOM · holding {held() ?? "nothing"}</span>
         <span style="flex:1" />
-        <button disabled={!cursor()} onClick={() => cursor() && props.bank.setBalance(cursor()!, 100, props.user)}>
+        <button disabled={!held()} onClick={() => held() && props.bank.setBalance(held()!, 100, props.user)}>
           + $100
         </button>
-        <button disabled={!cursor()} onClick={() => cursor() && props.bank.setBalance(cursor()!, -100, props.user)}>
+        <button disabled={!held()} onClick={() => held() && props.bank.setBalance(held()!, -100, props.user)}>
           − $100
         </button>
+        <button disabled={!held()} onClick={releaseAll}>release</button>
       </div>
       <div style={`height:380px;border:2px solid ${props.accent};border-radius:8px;--text-muted:#8a8f98;--border-subtle:rgba(0,0,0,.12);--tree-row-active-bg:${props.accent}22`}>
         <DatabaseTree
@@ -116,11 +131,19 @@ const Column: Component<{ bank: Bank; user: string; accent: string }> = (props) 
           selectedId={cursor()}
           onRangeChange={(start, end) => setDomRows(end - start + 1)}
           onSelect={(n) => {
-            if (!n.payload?.leaf) return; // branch → just expands; only accounts lock
+            // Branch (or any non-account): move the cursor there + RELEASE our lock.
+            // (Moving the pointer off a record unlocks it — and you can rest on a
+            // branch holding nothing.)
+            if (!n.payload?.leaf) {
+              setCursor(n.id);
+              releaseAll();
+              return;
+            }
             const lb = n.payload?.lockedBy as string | null;
             if (lb && lb !== props.user) return; // locked by the other user → not selectable
             setCursor(n.id);
-            props.bank.lock(n.id, props.user); // selecting an account locks it
+            setHeld(n.id);
+            props.bank.lock(n.id, props.user); // selecting an account locks it (releases prior)
           }}
           renderActionNode={(n) => {
             if (!n.payload?.leaf) return null; // branches: no lock indicator
