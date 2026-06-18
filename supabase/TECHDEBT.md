@@ -8,7 +8,7 @@ edge cases that were previously uncovered. **15/15 green** against live Supabase
 > `SUPABASE_SERVICE_ROLE_KEY` for privileged setup — aging locks, minting racers,
 > promoting an admin; they auto-skip with a notice if it's absent). Re-run after any
 > SQL change. Remaining manual-only item: deploying + smoke-testing the
-> `force-release-lock` *Edge function* (its JWT session-revoke can't be unit-tested);
+> `force-release` *Edge function* (its JWT session-revoke can't be unit-tested);
 > the security-critical authorization is covered by the `admin_force_release` RPC test.
 
 ## 1. ✅ Expiry-after-TTL grab (the whole "use it or lose it" promise)
@@ -34,7 +34,7 @@ row (`Promise.all`); assert exactly one returns a non-null row with its own `loc
 Repeat many rounds to shake out interleavings.
 
 ## 3. ✅ Service-role / admin override (force-release authorization)
-**Property:** the `force-release-lock` Edge function clears any lock **only** for an
+**Property:** the `force-release` Edge function clears any lock **only** for an
 authorized admin; a normal authenticated user invoking it is rejected (403); the cleared
 row fires a realtime event so clients drop the stale lock.
 **Why it must be fixed:** the override is the escape hatch for stuck locks — but an

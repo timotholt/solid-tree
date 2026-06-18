@@ -55,12 +55,16 @@ re-run.
 | `migrations/0001_scratch_lock_down.sql` | teardown SQL |
 | `apply.mjs` / `teardown.mjs` | run the SQL over a pg connection (no psql needed) |
 | `test/lock-audit.ts` | the adversarial audit (anon key only) |
-| `functions/force-release-lock/index.ts` | admin "use it or lose it" override (Edge, service-role, admin-gated) |
+| `functions/force-release/index.ts` | ONE admin "use it or lose it" override (Edge, service-role, admin-gated) for any whitelisted table |
 
 ## (optional) admin override Edge function
 ```bash
-supabase functions deploy force-release-lock
+supabase functions deploy force-release
 ```
+ONE generic function for every lock-bearing table — `POST { table, id, revokeSessions? }`.
+Attach a new table by adding its name to `ALLOWED_TABLES` in `functions/force-release/index.ts`
+(it just needs `locked_by`/`locked_at` columns). NOT deployed by `npm run setup` (that's
+SQL-only via the Management API) — deploy needs the Supabase CLI + a linked project.
 Lets an admin (`app_metadata.app_admin = true`) clear any lock and optionally revoke the
 holder's sessions. Revoking kills refresh tokens, but an already-issued access token lives
 until `exp` — which is why the lock TTL + lazy expiry exist.
