@@ -7,13 +7,12 @@
 // Prereq: run `npm run setup` in ../../supabase (creates table + RPCs + users),
 // then `cp .env.example .env` here and fill VITE_SUPABASE_ANON_KEY.
 import { createSignal, onMount, Show, type Component } from "solid-js";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { SupabaseTree, createSupabaseTreeController } from "@timotholt/solid-tree/supabase";
 import type { TreeNodeData } from "@timotholt/solid-tree/supabase";
+import { AuthColumn, lockBadge, sbConfigured, TEST_USERS, NotConfigured } from "./sb.jsx";
 import "@timotholt/solid-tree/theme.css";
 
-const URL = import.meta.env.VITE_SUPABASE_URL as string;
-const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const TABLE = "scratch_lock_demo";
 
 const toNode = (row: Record<string, any>): TreeNodeData => {
@@ -26,43 +25,12 @@ const toNode = (row: Record<string, any>): TreeNodeData => {
   };
 };
 
-// Sign-in shell: builds the controller only AFTER auth (so the roots query runs
-// authenticated under RLS), then renders ColumnInner.
-const Column: Component<{ email: string; password: string; name: string; accent: string }> = (props) => {
-  // Distinct storageKey per column so the two clients' auth sessions don't collide.
-  const client: SupabaseClient = createClient(URL, ANON, {
-    auth: { persistSession: false, autoRefreshToken: true, storageKey: `sb-bank-${props.name}` },
-  });
-  const [ready, setReady] = createSignal(false);
-  const [err, setErr] = createSignal<string | null>(null);
-  const [uid, setUid] = createSignal<string | null>(null);
-
-  onMount(async () => {
-    const { data, error } = await client.auth.signInWithPassword({ email: props.email, password: props.password });
-    if (error) return setErr(error.message);
-    setUid(data.user?.id ?? null);
-    setReady(true);
-  });
-
-  return (
-    <div style="flex:1;min-width:300px">
-      <h3 style={`margin:0 0 6px;color:${props.accent}`}>{props.name} (real Supabase)</h3>
-      <Show when={err()}>
-        <p style="color:#b91c1c;font-size:13px">sign-in failed: {err()} — did you run setup + set .env?</p>
-      </Show>
-      <Show when={ready()} fallback={<p style="font-size:13px;opacity:.6">signing in…</p>}>
-        {() => <ColumnInner client={client} uid={uid()!} name={props.name} accent={props.accent} />}
-      </Show>
-    </div>
-  );
-};
-
-const ColumnInner: Component<{ client: SupabaseClient; uid: string; name: string; accent: string }> = (props) => {
+// Built post-auth (by AuthColumn) so the roots query runs authenticated under RLS.
+const ColumnInner: Component<{ client: SupabaseClient; uid: string; accent: string }> = (props) => {
   const [heldLabel, setHeldLabel] = createSignal<string | null>(null);
   const [domRows, setDomRows] = createSignal(0);
   const [total, setTotal] = createSignal(0);
 
-  // The controller owns source/cache/lazy/realtime + the lock. Built post-auth.
   const tree = createSupabaseTreeController({
     client: props.client,
     table: TABLE,
@@ -70,10 +38,9 @@ const ColumnInner: Component<{ client: SupabaseClient; uid: string; name: string
     parentColumn: "parent_id",
     orderBy: { column: "label" },
     onLockLost: () => setHeldLabel(null),
-    // Can't select an account another user holds.
     canSelect: (n) => {
       const lb = n.payload?.lockedBy as string | null;
-      return !(lb && lb !== props.uid);
+      return !(lb && lb !== props.uid); // can't select an account another user holds
     },
     onSelect: async (n) => {
       // Groups aren't lockable — release whatever we held. (Expand = chevron, not select.)
@@ -121,56 +88,31 @@ const ColumnInner: Component<{ client: SupabaseClient; uid: string; name: string
         <SupabaseTree
           tree={tree}
           onRangeChange={(start, end) => setDomRows(end - start + 1)}
-          renderActionNode={(n) => {
-            const lb = n.payload?.lockedBy as string | null;
-            if (lb === props.uid) return <span title="you hold the lock">🔒</span>;
-            if (lb) return <span style="font-size:11px;color:#b45309">👤 locked</span>;
-            return null;
-          }}
+          renderActionNode={(n) => lockBadge(n.payload?.lockedBy as string | null, props.uid)}
         />
       </div>
     </>
   );
 };
 
-export const SupabaseDemo: Component = () => {
-  const configured = URL && ANON && !ANON.includes("paste-anon");
-  return (
-    <div style="font-family:system-ui;padding:16px;max-width:820px">
-      <h2>&lt;SupabaseTree&gt; — collaborative on a REAL backend</h2>
-      <p style="font-size:13px;color:#555">
-        Two real Supabase auth sessions over a 3-level tree in <code>{TABLE}</code>
-        (Region → Branch → Account), driven by <code>createSupabaseTreeController</code>.
-        Expand a branch to <strong>lazy-load</strong> its children from Postgres; rows are
-        windowed; Realtime + server-enforced locks (RLS + SECURITY DEFINER RPCs) are live.
-        Click a leaf <em>account</em> to lock it (🔒 yours, 👤 theirs), ±$100 mutates
-        Postgres, both views sync. Nothing here is faked.
-      </p>
-      <Show
-        when={configured}
-        fallback={
-          <p style="color:#b91c1c;font-size:13px">
-            Not configured. In <code>examples/</code>: <code>cp .env.example .env</code> and set
-            <code>VITE_SUPABASE_ANON_KEY</code>; and run <code>npm run setup</code> in{" "}
-            <code>supabase/</code> first.
-          </p>
-        }
-      >
-        <div style="display:flex;gap:16px">
-          <Column
-            email={import.meta.env.VITE_TEST_A_EMAIL as string}
-            password={import.meta.env.VITE_TEST_A_PASS as string}
-            name="Tim"
-            accent="#2563eb"
-          />
-          <Column
-            email={import.meta.env.VITE_TEST_B_EMAIL as string}
-            password={import.meta.env.VITE_TEST_B_PASS as string}
-            name="Sarah"
-            accent="#db2777"
-          />
-        </div>
-      </Show>
-    </div>
-  );
-};
+export const SupabaseDemo: Component = () => (
+  <div style="font-family:system-ui;padding:16px;max-width:820px">
+    <h2>&lt;SupabaseTree&gt; — collaborative on a REAL backend</h2>
+    <p style="font-size:13px;color:#555">
+      Two real Supabase auth sessions over a 3-level tree in <code>{TABLE}</code>
+      (Region → Branch → Account), driven by <code>createSupabaseTreeController</code>. Expand a
+      branch to <strong>lazy-load</strong> its children from Postgres; rows are windowed; Realtime +
+      server-enforced locks (RLS + SECURITY DEFINER RPCs) are live. Click a leaf <em>account</em> to
+      lock it (🔒 yours, 👤 theirs), ±$100 mutates Postgres, both views sync. Nothing here is faked.
+    </p>
+    <Show when={sbConfigured} fallback={<NotConfigured />}>
+      <div style="display:flex;gap:16px">
+        {TEST_USERS.map((u) => (
+          <AuthColumn prefix="bank" email={u.email} password={u.password} name={u.name} accent={u.accent}>
+            {(client, uid) => <ColumnInner client={client} uid={uid} accent={u.accent} />}
+          </AuthColumn>
+        ))}
+      </div>
+    </Show>
+  </div>
+);
