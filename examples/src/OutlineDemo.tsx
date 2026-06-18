@@ -1,29 +1,36 @@
-// Collaborative outline (?outline) — a DIFFERENT Supabase demo: two real sessions edit a
-// SHARED, MUTABLE tree. Add / rename / remove nodes via SECURITY DEFINER RPCs; the
-// STRUCTURE syncs live across both columns via Realtime INSERT / UPDATE / DELETE (the
-// bank demo only does UPDATE + lock). Uses createDatabaseTreeController over a Supabase
-// source — no locking here. Mount via /?outline.
+// Collaborative outline (?outline) — two real Supabase sessions edit a SHARED, MUTABLE
+// tree. Add / rename / remove via SECURITY DEFINER RPCs; the structure syncs live across
+// both columns. An outline is small, so we FULL-LOAD it (one select → nested tree) instead
+// of lazy-loading — that way children are known, so leaves correctly show NO chevron, and
+// a node that gains its first child correctly grows one. Realtime: any change → refetch +
+// rebuild. Driven by a base createTreeController over the in-memory tree. Mount via /?outline.
 //
 // Prereq: `npm run setup` in ../../supabase (adds scratch_outline + RPCs) + .env set.
-import { createSignal, onMount, Show, type Component } from "solid-js";
+import { createSignal, onCleanup, onMount, Show, type Component } from "solid-js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { DatabaseTree, createDatabaseTreeController } from "@timotholt/solid-tree/database";
-import { supabaseSource } from "@timotholt/solid-tree/supabase";
-import type { TreeNodeData } from "@timotholt/solid-tree/database";
+import { VirtualTree, createTreeController } from "@timotholt/solid-tree/virtual";
+import type { TreeNodeData } from "@timotholt/solid-tree/virtual";
 import "@timotholt/solid-tree/theme.css";
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const TABLE = "scratch_outline";
 
-// Every node is expandable (you can add children to any). A node with no children loads
-// empty on expand and drops its chevron.
-const toNode = (row: Record<string, any>): TreeNodeData => ({
-  id: row.id,
-  label: row.label,
-  type: "node",
-  payload: { leaf: false },
-});
+interface Row { id: string; parent_id: string | null; label: string }
+
+// Flat rows → nested TreeNodeData. Leaves get NO children key, so no chevron.
+function buildTree(rows: Row[]): TreeNodeData[] {
+  const byId = new Map<string, TreeNodeData & { children: TreeNodeData[] }>();
+  for (const r of rows) byId.set(r.id, { id: r.id, label: r.label, type: "node", children: [] });
+  const roots: TreeNodeData[] = [];
+  for (const r of rows) {
+    const node = byId.get(r.id)!;
+    const parent = r.parent_id ? byId.get(r.parent_id) : null;
+    (parent ? parent.children : roots).push(node);
+  }
+  for (const n of byId.values()) if (n.children.length === 0) delete (n as TreeNodeData).children;
+  return roots;
+}
 
 const Column: Component<{ email: string; password: string; name: string; accent: string }> = (props) => {
   const client: SupabaseClient = createClient(URL, ANON, {
@@ -52,37 +59,47 @@ const Column: Component<{ email: string; password: string; name: string; accent:
 };
 
 const OutlineColumn: Component<{ client: SupabaseClient; accent: string }> = (props) => {
+  const [data, setData] = createSignal<TreeNodeData[]>([]);
   const [draft, setDraft] = createSignal("");
   const [domRows, setDomRows] = createSignal(0);
+  const tree = createTreeController({ data: () => data() });
 
-  // DB controller over the Supabase outline table (no lock layer).
-  const tree = createDatabaseTreeController({
-    source: supabaseSource({
-      client: props.client,
-      table: TABLE,
-      toNode,
-      parentColumn: "parent_id",
-      orderBy: { column: "created_at" },
-    }),
+  const refetch = async () => {
+    const { data: rows } = await props.client
+      .from(TABLE).select("id,parent_id,label,created_at").order("created_at");
+    setData(buildTree((rows ?? []) as Row[]));
+  };
+
+  onMount(() => {
+    void refetch();
+    // One channel; any change to the shared table → refetch + rebuild (table is tiny).
+    const ch = props.client
+      .channel(`outline:${props.accent}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, () => void refetch())
+      .subscribe();
+    onCleanup(() => void props.client.removeChannel(ch));
   });
 
   const sel = () => tree.selectedId();
   const add = async (parent: string | null) => {
     await props.client.rpc("outline_add", { _parent: parent, _label: draft() });
     setDraft("");
-    if (parent) await tree.expand(parent); // reveal the new child
+    await refetch();
+    if (parent) tree.expand(parent); // reveal the new child
   };
   const remove = async () => {
     const id = sel();
     if (!id) return;
     await props.client.rpc("outline_remove", { _id: id });
     tree.deselect();
+    await refetch();
   };
   const rename = async () => {
     const id = sel();
     if (id && draft().trim()) {
       await props.client.rpc("outline_rename", { _id: id, _label: draft() });
       setDraft("");
+      await refetch();
     }
   };
 
@@ -105,7 +122,7 @@ const OutlineColumn: Component<{ client: SupabaseClient; accent: string }> = (pr
         <span style="opacity:.6;font-size:12px;align-self:center">{domRows()} in DOM</span>
       </div>
       <div style={`height:360px;border:2px solid ${props.accent};border-radius:8px;--text-muted:#8a8f98;--border-subtle:rgba(0,0,0,.12);--tree-row-active-bg:${props.accent}22`}>
-        <DatabaseTree tree={tree} onRangeChange={(s, e) => setDomRows(e - s + 1)} />
+        <VirtualTree tree={tree} onRangeChange={(s, e) => setDomRows(e - s + 1)} />
       </div>
     </>
   );
@@ -120,9 +137,9 @@ export const OutlineDemo: Component = () => {
         Two real Supabase sessions on a shared <code>scratch_outline</code> table. Type a
         label, <strong>+ root</strong> or select a node and <strong>+ child</strong> /{" "}
         <strong>rename</strong> / <strong>remove</strong>. Mutations go through SECURITY
-        DEFINER RPCs (RLS denies direct writes); the <em>structure</em> syncs live across
-        both columns via Realtime INSERT/UPDATE/DELETE. (Add a root on the left → watch it
-        appear on the right. No locking here — that's the <em>&lt;SupabaseTree&gt;</em> demo.)
+        DEFINER RPCs (RLS denies direct writes); every change syncs live across both columns
+        via Realtime. Full-loaded so leaves show no chevron. (Add a root on the left → watch
+        it appear on the right.)
       </p>
       <Show
         when={configured}
