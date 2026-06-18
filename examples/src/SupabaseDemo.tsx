@@ -16,12 +16,16 @@ const URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const TABLE = "scratch_lock_demo";
 
-const toNode = (row: Record<string, any>): TreeNodeData => ({
-  id: row.id,
-  label: `${row.label} — $${Number(row.balance ?? 0).toFixed(2)}`,
-  type: "account",
-  payload: { leaf: true, lockedBy: row.locked_by as string | null },
-});
+const toNode = (row: Record<string, any>): TreeNodeData => {
+  const leaf = row.kind === "leaf";
+  return {
+    id: row.id,
+    label: leaf ? `${row.label} — $${Number(row.balance ?? 0).toFixed(2)}` : row.label,
+    type: leaf ? "account" : "group",
+    // payload.leaf=false → DatabaseTree shows a chevron + lazy-loads children on expand.
+    payload: { leaf, lockedBy: row.locked_by as string | null },
+  };
+};
 
 const Column: Component<{ email: string; password: string; name: string; accent: string }> = (props) => {
   const client: SupabaseClient = createClient(URL, ANON, {
@@ -63,7 +67,7 @@ const Column: Component<{ email: string; password: string; name: string; accent:
     drop();
     setReady(true);
 
-    const { count } = await client.from(TABLE).select("*", { count: "exact", head: true });
+    const { count } = await client.from(TABLE).select("*", { count: "exact", head: true }).eq("kind", "leaf");
     setTotal(count ?? 0);
 
     // Side channel so the lock learns when our held row is expired/reassigned.
@@ -94,7 +98,7 @@ const Column: Component<{ email: string; password: string; name: string; accent:
       </Show>
       <div style="font-size:13px;margin-bottom:8px">
         <div style="opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px">
-          {domRows()} in DOM / {total()} total · holding {heldLabel() ?? "nothing"}
+          {domRows()} in DOM / {total()} accounts · holding {heldLabel() ?? "nothing"}
         </div>
         <div style="display:flex;gap:6px">
           <button disabled={!held()} onClick={() => bump(100)}>+ $100</button>
@@ -108,17 +112,24 @@ const Column: Component<{ email: string; password: string; name: string; accent:
             client={client}
             table={TABLE}
             toNode={toNode}
+            parentColumn="parent_id"
             orderBy={{ column: "label" }}
             selectedId={cursor()}
             onRangeChange={(start, end) => setDomRows(end - start + 1)}
             onSelect={async (n) => {
+              setCursor(n.id);
+              // Groups (regions/branches) aren't lockable — just move the cursor +
+              // release any leaf we held. (Expand/collapse is the chevron, not select.)
+              if (!n.payload?.leaf) {
+                await release();
+                return;
+              }
               const lb = n.payload?.lockedBy as string | null;
               if (lb && lb !== uid()) return; // locked by the other user → not selectable
               const got = await lock.acquire(n.id);
-              setCursor(n.id);
               if (got) {
                 setHeld(n.id);
-                setHeldLabel(n.label.split(" — ")[0]); // "Account 0160", not the uuid
+                setHeldLabel(n.label.split(" — ")[0]); // "Account 001020", not the uuid
               } else {
                 drop();
               }
@@ -142,11 +153,11 @@ export const SupabaseDemo: Component = () => {
     <div style="font-family:system-ui;padding:16px;max-width:820px">
       <h2>&lt;SupabaseTree&gt; — collaborative on a REAL backend</h2>
       <p style="font-size:13px;color:#555">
-        Two real Supabase auth sessions over table <code>{TABLE}</code>: lazy + windowed,
-        live Realtime, and record locks enforced server-side (RLS + SECURITY DEFINER
-        RPCs). Click an account to lock it (🔒 yours, 👤 theirs), ±$100 mutates Postgres,
-        both views sync live. Same UX as the in-memory <em>Collaborative</em> demo — but
-        nothing here is faked.
+        Two real Supabase auth sessions over a 3-level tree in <code>{TABLE}</code>
+        (Region → Branch → Account). Expand a branch to <strong>lazy-load</strong> its
+        children from Postgres; rows are windowed; Realtime + server-enforced locks (RLS +
+        SECURITY DEFINER RPCs) are live. Click a leaf <em>account</em> to lock it (🔒 yours,
+        👤 theirs), ±$100 mutates Postgres, both views sync. Nothing here is faked.
       </p>
       <Show
         when={configured}

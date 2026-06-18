@@ -14,14 +14,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 config({ path: join(HERE, ".env") });
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
-const SEED_ROWS = Math.max(1, Number(process.env.SEED_ROWS ?? 2000) | 0);
+// Tree dimensions: Region × Branch × Account. Default 10×10×20 = 2000 leaves.
+const I = (k, d) => Math.max(1, Number(process.env[k] ?? d) | 0);
+const [REGIONS, BRANCHES, ACCOUNTS] = [I("SEED_REGIONS", 10), I("SEED_BRANCHES", 10), I("SEED_ACCOUNTS", 20)];
 const migration = readFileSync(join(HERE, "migrations", "0001_scratch_lock.sql"), "utf8");
 
 try {
   console.log("→ applying migration via " + method() + " …");
   await runSql(migration);
-  console.log(`→ seeding ${SEED_ROWS} rows…`);
-  await runSql(`select public.scratch_seed(${SEED_ROWS});`);
+  console.log(`→ seeding tree ${REGIONS}×${BRANCHES}×${ACCOUNTS} (${REGIONS * BRANCHES * ACCOUNTS} leaves)…`);
+  await runSql(`select public.scratch_seed_tree(${REGIONS}, ${BRANCHES}, ${ACCOUNTS});`);
   console.log("✅ schema applied + seeded.");
 } catch (e) {
   console.error("💥 schema apply failed:\n  " + e.message);

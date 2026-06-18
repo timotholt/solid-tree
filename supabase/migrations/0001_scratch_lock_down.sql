@@ -14,4 +14,5 @@ drop function if exists public.release_lock(uuid);
 drop function if exists public.release_all_locks();
 drop function if exists public.admin_force_release(uuid);
 drop function if exists public.scratch_seed(int);
+drop function if exists public.scratch_seed_tree(int, int, int);
 drop table if exists public.scratch_lock_demo;

@@ -17,6 +17,15 @@ create table if not exists public.scratch_lock_demo (
 create index if not exists scratch_lock_demo_locked_by_idx
   on public.scratch_lock_demo (locked_by);
 
+-- Self-reference for hierarchy: roots have parent_id IS NULL. kind marks whether a
+-- row is an expandable 'group' or a 'leaf'. (Added idempotently so re-runs are safe.)
+alter table public.scratch_lock_demo
+  add column if not exists parent_id uuid references public.scratch_lock_demo(id) on delete cascade;
+alter table public.scratch_lock_demo
+  add column if not exists kind text not null default 'leaf';
+create index if not exists scratch_lock_demo_parent_idx
+  on public.scratch_lock_demo (parent_id);
+
 -- 2. Seed helper (definer so a test client can populate without insert RLS) ────
 create or replace function public.scratch_seed(_n int default 200)
 returns void language plpgsql security definer set search_path = public as $$
@@ -25,6 +34,29 @@ begin
   insert into scratch_lock_demo (label, balance)
   select 'Account ' || lpad(g::text, 4, '0'), 0
   from generate_series(0, greatest(_n, 1) - 1) g;
+end $$;
+
+-- Seed a 3-level hierarchy: Region → Branch → Account(leaf). Lockable leaves only.
+create or replace function public.scratch_seed_tree(
+  _regions int default 10, _branches int default 10, _accounts int default 20)
+returns void language plpgsql security definer set search_path = public as $$
+declare r int; b int; a int; rid uuid; bid uuid;
+begin
+  delete from scratch_lock_demo;
+  for r in 0.._regions - 1 loop
+    insert into scratch_lock_demo(label, kind, parent_id)
+      values ('Region ' || lpad(r::text, 2, '0'), 'group', null) returning id into rid;
+    for b in 0.._branches - 1 loop
+      insert into scratch_lock_demo(label, kind, parent_id)
+        values ('Branch ' || lpad(r::text,2,'0') || '-' || lpad(b::text,2,'0'), 'group', rid)
+        returning id into bid;
+      for a in 0.._accounts - 1 loop
+        insert into scratch_lock_demo(label, kind, parent_id, balance)
+          values ('Account ' || lpad(r::text,2,'0') || lpad(b::text,2,'0') || lpad(a::text,3,'0'),
+                  'leaf', bid, 0);
+      end loop;
+    end loop;
+  end loop;
 end $$;
 
 -- 3. Lock RPCs — SECURITY DEFINER, keyed on auth.uid() (unforgeable) ──────────
@@ -109,13 +141,15 @@ revoke all on function
   public.acquire_lock(uuid), public.touch_lock(uuid),
   public.release_lock(uuid), public.release_all_locks(),
   public.admin_force_release(uuid),
-  public.bump_balance(uuid, numeric), public.scratch_seed(int)
+  public.bump_balance(uuid, numeric),
+  public.scratch_seed(int), public.scratch_seed_tree(int, int, int)
   from public, anon;
 grant execute on function
   public.acquire_lock(uuid), public.touch_lock(uuid),
   public.release_lock(uuid), public.release_all_locks(),
   public.admin_force_release(uuid),
-  public.bump_balance(uuid, numeric), public.scratch_seed(int)
+  public.bump_balance(uuid, numeric),
+  public.scratch_seed(int), public.scratch_seed_tree(int, int, int)
   to authenticated;
 
 -- 5. RLS — read for all authed; NO direct writes (lock + data via RPC only) ────
