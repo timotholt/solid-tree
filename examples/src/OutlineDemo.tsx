@@ -1,9 +1,10 @@
-// Collaborative outline (?outline) — two real Supabase sessions edit a SHARED, MUTABLE
-// tree, with RECORD LOCKING. Selecting a node acquires its lock (🔒 yours, 👤 someone
-// else's); rename / remove / add-child are server-refused when another user holds it — so
-// a node you're working in can't be renamed or deleted out from under you. Genuinely lazy
-// (createSupabaseTreeController → children fetched on expand; leaf-ness from child_count).
-// Mount via /?outline.
+// Collaborative outline (?outline) — the full feature showcase: add / rename / remove +
+// explicit LOCK / UNLOCK, on a shared Supabase tree, live across two real sessions.
+// Selecting a node just moves the cursor (view). To edit it you must LOCK it first
+// (atomic acquire — refused if another user holds it: 🔒 yours, 👤 theirs). rename / +child
+// / remove are gated on holding the lock; remove is subtree-aware (can't delete a node
+// whose descendant another user holds). Genuinely lazy (children load on expand; leaf-ness
+// from child_count). Mount via /?outline.
 //
 // Prereq: `npm run setup` in ../../supabase (adds scratch_outline + lock RPCs) + .env set.
 import { createSignal, onMount, Show, type Component } from "solid-js";
@@ -45,7 +46,7 @@ const Column: Component<{ email: string; password: string; name: string; accent:
   });
 
   return (
-    <div style="flex:1;min-width:280px">
+    <div style="flex:1;min-width:300px">
       <h3 style={`margin:0 0 6px;color:${props.accent}`}>{props.name}</h3>
       <Show when={err()}>
         <p style="color:#b91c1c;font-size:13px">sign-in failed: {err()} — setup + .env?</p>
@@ -60,9 +61,9 @@ const Column: Component<{ email: string; password: string; name: string; accent:
 const OutlineColumn: Component<{ client: SupabaseClient; uid: string; accent: string }> = (props) => {
   const [draft, setDraft] = createSignal("");
   const [selLabel, setSelLabel] = createSignal("");
+  const [selLockedBy, setSelLockedBy] = createSignal<string | null>(null);
   const [domRows, setDomRows] = createSignal(0);
 
-  // Lazy Supabase controller + record lock (lock RPCs point at the outline_* functions).
   const tree = createSupabaseTreeController({
     client: props.client,
     table: TABLE,
@@ -70,16 +71,29 @@ const OutlineColumn: Component<{ client: SupabaseClient; uid: string; accent: st
     parentColumn: "parent_id",
     orderBy: { column: "created_at" },
     lockRpc: LOCK_RPC,
-    // Selecting a node grabs its lock (one editor → one lock). If refused, you don't hold it.
-    onSelect: async (n) => {
+    // Selecting only moves the cursor (view). Locking is an explicit action.
+    onSelect: (n) => {
       setSelLabel(n.label);
-      await tree.acquireLock(n.id);
+      setSelLockedBy((n.payload?.lockedBy ?? null) as string | null);
     },
+    onLockLost: () => {},
   });
 
   const sel = () => tree.selectedId();
-  const hold = () => !!sel() && tree.heldId() === sel(); // you currently hold the selected node
+  const hold = () => !!sel() && tree.heldId() === sel(); // you hold the selected node
+  const lockedByOther = () => !!selLockedBy() && selLockedBy() !== props.uid;
 
+  const lock = async () => {
+    const id = sel();
+    if (!id) return;
+    const ok = await tree.acquireLock(id);
+    if (ok) setSelLockedBy(props.uid);
+    else window.alert("Can't lock — another user holds this node.");
+  };
+  const unlock = async () => {
+    await tree.releaseLock();
+    setSelLockedBy(null);
+  };
   const add = async (parent: string | null) => {
     await props.client.rpc("outline_add", { _parent: parent, _label: draft() });
     setDraft("");
@@ -106,6 +120,7 @@ const OutlineColumn: Component<{ client: SupabaseClient; uid: string; accent: st
     }
   };
 
+  const btnStyle = "font-size:13px";
   return (
     <>
       <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -115,16 +130,20 @@ const OutlineColumn: Component<{ client: SupabaseClient; uid: string; accent: st
           placeholder="new label…"
           style="flex:1;min-width:0;padding:5px 7px;font-size:13px"
         />
-        <button disabled={!draft().trim()} onClick={() => add(null)}>+ root</button>
+        <button style={btnStyle} disabled={!draft().trim()} onClick={() => add(null)}>+ root</button>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:8px;font-size:13px">
-        <button disabled={!hold() || !draft().trim()} onClick={() => add(sel())}>+ child</button>
-        <button disabled={!hold()} onClick={rename}>rename</button>
-        <button disabled={!hold()} onClick={remove}>remove</button>
-        <span style="flex:1" />
-        <span style="opacity:.6;font-size:12px;align-self:center">{domRows()} in DOM</span>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <button style={btnStyle} disabled={!sel() || hold() || lockedByOther()} onClick={lock}>🔒 lock</button>
+        <button style={btnStyle} disabled={!hold()} onClick={unlock}>unlock</button>
+        <span style="width:8px" />
+        <button style={btnStyle} disabled={!hold() || !draft().trim()} onClick={() => add(sel())}>+ child</button>
+        <button style={btnStyle} disabled={!hold()} onClick={rename}>rename</button>
+        <button style={btnStyle} disabled={!hold()} onClick={remove}>remove</button>
       </div>
-      <div style={`height:360px;border:2px solid ${props.accent};border-radius:8px;--text-muted:#8a8f98;--border-subtle:rgba(0,0,0,.12);--tree-row-active-bg:${props.accent}22`}>
+      <div style="font-size:12px;opacity:.65;margin-bottom:6px">
+        {sel() ? (hold() ? "you hold this node" : lockedByOther() ? "locked by the other user" : "selected — click 🔒 lock to edit") : "select a node"} · {domRows()} in DOM
+      </div>
+      <div style={`height:340px;border:2px solid ${props.accent};border-radius:8px;--text-muted:#8a8f98;--border-subtle:rgba(0,0,0,.12);--tree-row-active-bg:${props.accent}22`}>
         <SupabaseTree
           tree={tree}
           onRangeChange={(s, e) => setDomRows(e - s + 1)}
@@ -143,17 +162,16 @@ const OutlineColumn: Component<{ client: SupabaseClient; uid: string; accent: st
 export const OutlineDemo: Component = () => {
   const configured = URL && ANON && !ANON.includes("paste-anon");
   return (
-    <div style="font-family:system-ui;padding:16px;max-width:760px">
-      <h2>Collaborative outline — lazy, locked, live</h2>
+    <div style="font-family:system-ui;padding:16px;max-width:820px">
+      <h2>Collaborative outline — add / rename / remove + lock / unlock</h2>
       <p style="font-size:13px;color:#555">
-        Two real Supabase sessions on a shared <code>scratch_outline</code> table. Type a
-        label and <strong>+ root</strong>; or click a node to <strong>lock</strong> it (🔒
-        yours, 👤 theirs) and <strong>+ child</strong> / <strong>rename</strong> /{" "}
-        <strong>remove</strong>. While you hold a node, the other user can't rename or delete
-        it (server-enforced via SECURITY DEFINER RPCs) — so children can't be deleted out
-        from under you. Genuinely lazy (children load on expand); changes sync live via
-        Realtime. Try: lock Q4 goals on the left → watch 👤 appear on the right and their
-        remove refuse.
+        Two real Supabase sessions on a shared <code>scratch_outline</code> tree. Type a
+        label → <strong>+ root</strong>. Click a node to select it, then <strong>🔒 lock</strong>
+        {" "}it to edit — locking is atomic, so the other user can't lock the same node (they
+        see 👤). While you hold it you can <strong>+ child</strong> / <strong>rename</strong> /
+        <strong>remove</strong> / <strong>unlock</strong>; remove is subtree-aware (can't
+        delete a node whose descendant the other user holds). Lazy + live over Realtime. Try:
+        both click Roadmap → only one can lock it.
       </p>
       <Show
         when={configured}
