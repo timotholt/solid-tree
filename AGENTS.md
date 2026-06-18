@@ -134,6 +134,26 @@ Rows grow with content (no fixed height). For 2/3/N-line items: set `--tree-labe
 ## Virtualization (future)
 `<Tree>` is recursive, grows with content, no deps — fine up to a few thousand nodes. For 10k+ a separate `<VirtualTree>` is planned (see `docs/SPEC-virtualization.md`): same `TreeNodeData`/props/tokens, adds windowing via `@tanstack/solid-virtual` + a bounded-height container + `measureElement` + `scrollToIndex`. The seam is shipped: `flattenVisible(data, expanded) → FlatRow[]` (exported; dividers marked `navigable:false`). Not built yet — don't import `VirtualTree`.
 
+## `<VirtualTree>` — windowed, for large lists
+Same API + tokens as `<Tree>`, but renders only the visible window via
+`@tanstack/solid-virtual`. Use for big in-memory lists (thousands+). Import from the
+subpath; it has extra requirements:
+```tsx
+import { VirtualTree } from "@timotholt/solid-tree/virtual";
+// REQUIRES a bounded-height parent (or pass viewportStyle). It fills 100% height.
+<div style="height:420px">
+  <VirtualTree data={data} selectedId={sel()} searchQuery={q()} onSelect={...} />
+</div>
+```
+- Extra props: `estimateSize?` (px, default 32 — tune to common row), `overscan?`
+  (default 6), `class?`/`viewportStyle?` (the scroll viewport), `onRangeChange?(start,end)`
+  (the lazy-paging seam for the future `<DatabaseTree>`).
+- Peer dep `@tanstack/solid-virtual` (optional — only `/virtual` needs it).
+- **Consumer MUST dedupe solid-js** in their bundler, or a prod build can pull a
+  second solid-js instance and `ref`/`use()` directives silently no-op (blank list).
+  Vite: `resolve: { dedupe: ['solid-js', '@tanstack/solid-virtual'] }`. Also
+  `optimizeDeps: { exclude: ['@timotholt/solid-tree'] }`.
+
 ## What it does NOT do (don't assume these)
 - No multi-select, no checkboxes. Single selection only.
 - No drag-and-drop, no inline rename, no context menu.

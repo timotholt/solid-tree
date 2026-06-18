@@ -1,6 +1,8 @@
 import { render } from "solid-js/web";
 import { App } from "./App.jsx";
 import { Spike } from "./Spike.jsx";
+import { VirtualDemo } from "./VirtualDemo.jsx";
 
-const spike = new URLSearchParams(location.search).has("spike");
-render(() => (spike ? <Spike /> : <App />), document.getElementById("app")!);
+const p = new URLSearchParams(location.search);
+const View = p.has("spike") ? Spike : p.has("virtual") ? VirtualDemo : App;
+render(() => <View />, document.getElementById("app")!);
