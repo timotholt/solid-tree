@@ -1,6 +1,6 @@
 {
   "name": "@timotholt/solid-tree",
-  "version": "0.10.2",
+  "version": "0.11.0",
   "description": "A small, themeable SolidJS tree-view component (expand/collapse with persistence, selection, icons, counts, dividers, per-node action slots).",
   "license": "MIT",
   "type": "module",
@@ -36,6 +36,13 @@
         "default": "./dist/database.js"
       }
     },
+    "./supabase": {
+      "solid": "./src/supabase.tsx",
+      "import": {
+        "types": "./dist/supabase.d.ts",
+        "default": "./dist/supabase.js"
+      }
+    },
     "./theme.css": "./src/theme.css"
   },
   "scripts": {
@@ -43,6 +50,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
+    "@supabase/supabase-js": "^2.0.0",
     "@tanstack/solid-query": "^5.0.0",
     "@tanstack/solid-virtual": "^3.0.0",
     "solid-js": "^1.6.0"
@@ -53,9 +61,13 @@
     },
     "@tanstack/solid-query": {
       "optional": true
+    },
+    "@supabase/supabase-js": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.45.0",
     "@tanstack/solid-query": "^5.101.0",
     "@tanstack/solid-virtual": "^3.13.0",
     "solid-js": "^1.9.11",

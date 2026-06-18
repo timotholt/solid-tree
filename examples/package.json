@@ -7,6 +7,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
     "@tanstack/solid-query": "^5.101.0",
     "@timotholt/solid-tree": "file:..",
     "solid-js": "^1.9.11"
