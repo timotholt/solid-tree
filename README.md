@@ -25,32 +25,83 @@ deps. Each tier ships both a **component** (declarative) and a **controller** (i
 — see [Controller API](#controller-api-imperative). **Consumers must `resolve.dedupe`
 solid-js** (+ any tier peers) — see AGENTS.md.
 
-## Install (git dependency)
+## Install
 
-No registry needed — install straight from the git repo. **Use a `#semver:` range**
-so `npm install`/`npm update` pulls the newest matching tag automatically (this is
-how you keep consumers from getting stuck on an old version):
+### 0. Requirements (who this is for)
+
+A **SolidJS** app built with **Vite + `vite-plugin-solid`** (the standard Solid setup).
+The package ships its raw `.tsx` source under the `"solid"` export condition, so *your*
+`vite-plugin-solid` compiles it — that's what keeps a single Solid instance. `solid-js` is
+a **peer dependency** (you already have it in a Solid app). Node 18+ to install.
+
+> Not using Vite/`vite-plugin-solid`? There's a compiled `import` entry + types
+> (`dist/*.js`) for other bundlers/SSR, but the Vite path above is the supported one.
+
+### 1. Add the dependency (where + when)
+
+No registry — install from the git repo. **Pin a `#semver:` range** so `npm update` pulls
+the newest matching tag (don't get stuck on an old version):
 
 ```jsonc
 // package.json
 {
   "dependencies": {
-    "@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.12.0"
+    "@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.13.0"
   }
 }
 ```
 
-`#semver:^0.12.0` resolves to the highest `0.x` tag ≥ 0.12.0. Pin an exact tag
-(`#v0.7.0`) instead only when you want fully reproducible installs. (Plain git deps
-can't be force-updated server-side — the consumer controls the ref; the semver
-range is what lets `npm update` advance them.)
+`#semver:^0.13.0` → highest `0.x` tag ≥ 0.13.0. For a fully reproducible install, pin an
+exact tag instead: `#v0.13.1`. Then run `npm install`.
 
-Then `npm install`. Consumers must use Vite + `vite-plugin-solid` (the standard
-SolidJS setup) so the `solid` export condition resolves and the JSX compiles.
+### 2. Install the peer deps for the tiers you use (what)
 
-> **Alt distribution:** publish to npm / a private registry later with
-> `npm publish` — the `exports` map already exposes a compiled `import` entry
-> (`dist/index.js`) + types for non-Solid-aware bundlers.
+The base import has **zero** extra deps. Each higher tier needs one optional peer — install
+only the ones you import (see the [tiers table](#tiers-import-only-what-you-need)):
+
+```bash
+# base <Tree> — nothing extra
+npm i @tanstack/solid-virtual     # for /virtual  → <VirtualTree>
+npm i @tanstack/solid-query       # for /database → <DatabaseTree>  (also needs solid-virtual)
+npm i @supabase/supabase-js       # for /supabase → <SupabaseTree>  (also needs the two above)
+```
+
+### 3. Configure Vite — REQUIRED (how) ⚠️
+
+**This step is mandatory, and skipping it fails *silently*.** Without it a production build
+can pull a **second copy of `solid-js`**; then `ref`/`use()` directives from the wrong
+instance no-op and you get a **blank, dead tree with no error**. Add to `vite.config.ts`:
+
+```ts
+import { defineConfig } from "vite";
+import solid from "vite-plugin-solid";
+
+export default defineConfig({
+  plugins: [solid()],
+  // Collapse to ONE instance of solid-js (+ any tier peers you installed in step 2).
+  resolve: { dedupe: ["solid-js", "@tanstack/solid-virtual", "@tanstack/solid-query"] },
+  // Let vite-plugin-solid compile the package's raw .tsx (don't pre-bundle it).
+  optimizeDeps: { exclude: ["@timotholt/solid-tree"] },
+});
+```
+
+List only the peers you actually use. If the tree renders blank (esp. only in `vite build`,
+not `vite dev`), this is almost always a missing/incomplete `dedupe`.
+
+### 4. Import + theme
+
+```ts
+import { Tree, type TreeNodeData } from "@timotholt/solid-tree";
+import "@timotholt/solid-tree/theme.css"; // or define the CSS vars yourself (see Theme below)
+```
+
+### Updating
+
+Bump the consumer's `#semver:` range (or run `npm update @timotholt/solid-tree`). Per-tag
+notes are on the [GitHub releases](https://github.com/timotholt/solid-tree/releases).
+
+> **Publishing to npm later:** `npm publish` works as-is — the `exports` map already exposes
+> the compiled `import` entry + `.d.ts` for non-Solid-aware bundlers.
 
 ## Theme (required CSS vars)
 

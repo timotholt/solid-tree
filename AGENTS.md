@@ -2,11 +2,30 @@
 
 SolidJS tree-view component. This file is the complete usage contract. Read it, then use the component without guessing.
 
-## Install
+## Install (do ALL of these — step 3 fails silently if skipped)
+
+**WHO:** a SolidJS app on **Vite + `vite-plugin-solid`**. `solid-js` is a peer dep. The
+package ships raw `.tsx` under the `"solid"` export condition; the consumer's
+vite-plugin-solid compiles it (single Solid instance).
+
+**1. Dependency** (git, pinned to a semver range so `npm update` advances it):
 ```jsonc
-"@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.12.0"
+"@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.13.0"
 ```
-Consumer MUST be SolidJS + `vite-plugin-solid`. `solid-js` is a peer dep (single Solid instance). The package ships raw source under the `solid` export condition; consumers compile it. Add `optimizeDeps: { exclude: ['@timotholt/solid-tree'] }` to the consumer's `vite.config`.
+Then `npm install`.
+
+**2. Peer deps — only the tiers you import** (base `<Tree>` = none):
+- `/virtual` (`<VirtualTree>`) → `@tanstack/solid-virtual`
+- `/database` (`<DatabaseTree>`) → `+ @tanstack/solid-query`
+- `/supabase` (`<SupabaseTree>`) → `+ @supabase/supabase-js`
+
+**3. `vite.config.ts` — REQUIRED.** Skipping this builds fine but renders a BLANK tree in
+prod (a 2nd solid-js instance makes `ref`/`use()` no-op). Add:
+```ts
+resolve: { dedupe: ['solid-js', '@tanstack/solid-virtual', '@tanstack/solid-query'] }, // + only peers you use
+optimizeDeps: { exclude: ['@timotholt/solid-tree'] },
+```
+Symptom of a missing/incomplete dedupe: blank list, usually only in `vite build` (not dev).
 
 ## Required setup
 Tree uses two CSS vars. Define them OR import the shipped theme:
