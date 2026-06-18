@@ -1,9 +1,9 @@
-import { onMount, onCleanup, type Accessor } from "solid-js";
+import { onMount, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
 import { QueryClient, createQuery } from "@tanstack/solid-query";
-import { type TreeNodeData, type TreeSource, type TreeChange, type TreeMatcher } from "./types.js";
+import { type TreeNodeData, type TreeSource, type TreeChange } from "./types.js";
 import { findNode } from "./search.js";
-import { createTreeController, type TreeController } from "./controller.js";
+import { createTreeController, pickCore, type TreeController, type CoreControllerOptions } from "./controller.js";
 
 /** Placeholder node type for the "Loading…" row shown under an unloaded branch. */
 export const LOADING_TYPE = "__solid-tree-loading";
@@ -14,20 +14,11 @@ export const loadingChild = (parentId: string): TreeNodeData => ({
   payload: { leaf: true },
 });
 
-export interface DatabaseTreeControllerOptions {
+export interface DatabaseTreeControllerOptions extends CoreControllerOptions {
   /** Async, backend-agnostic source (Supabase/REST/local adapter). */
   source: TreeSource;
   /** Reuse an app QueryClient; otherwise the controller makes its own. */
   queryClient?: QueryClient;
-  // forwarded to the core controller
-  selectedId?: Accessor<string | null | undefined>;
-  searchQuery?: Accessor<string | undefined>;
-  matcher?: TreeMatcher;
-  filterMode?: "prune" | "dim";
-  onSelect?: (node: TreeNodeData) => void;
-  onToggle?: (id: string, expanded: boolean) => void;
-  storageKey?: string;
-  storagePrefix?: string;
 }
 
 /** {@link TreeController} plus the source/cache/lazy/realtime layer. */
@@ -139,13 +130,8 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
   // ── core controller over the assembled data; expand triggers a lazy load ─────
   const core = createTreeController({
     data,
-    selectedId: opts.selectedId,
-    searchQuery: opts.searchQuery,
-    matcher: opts.matcher,
-    filterMode: opts.filterMode,
-    onSelect: opts.onSelect,
-    storageKey: opts.storageKey,
-    storagePrefix: opts.storagePrefix,
+    ...pickCore(opts),
+    // override the forwarded onToggle: expand triggers a lazy load, then the user's hook.
     onToggle: (id, expanded) => {
       if (expanded) void loadChildren(id);
       opts.onToggle?.(id, expanded);

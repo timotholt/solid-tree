@@ -20,14 +20,14 @@ export interface SearchView {
 }
 
 /**
- * Options for {@link createTreeController}. Reactive inputs are Accessors so the
- * controller can be created standalone (`createTreeController({ data: () => myData })`)
- * or from a component's props (the component adapts props → accessors). Selection and
- * search are controller-owned signals; the matching `selectedId`/`searchQuery` accessor,
- * when provided, is treated as a CONTROLLED input that wins over the internal signal.
+ * Options shared by every tier's controller (selection/search/persistence/events).
+ * Reactive inputs are Accessors so a controller works standalone or driven from a
+ * component's props. Selection and search are controller-owned signals; the matching
+ * `selectedId`/`searchQuery` accessor, when provided, is a CONTROLLED input that wins
+ * over the internal signal. Declared once here; the database/supabase option types
+ * extend it so a new core option is added in exactly one place.
  */
-export interface TreeControllerOptions {
-  data: Accessor<TreeNodeData[]>;
+export interface CoreControllerOptions {
   /** Controlled selection. When provided it wins over the internal signal. */
   selectedId?: Accessor<string | null | undefined>;
   /** Controlled search query. When provided it wins over setSearch(). */
@@ -40,6 +40,23 @@ export interface TreeControllerOptions {
   storageKey?: string;
   storagePrefix?: string;
 }
+
+/** Options for {@link createTreeController}: the core options plus the in-memory data. */
+export interface TreeControllerOptions extends CoreControllerOptions {
+  data: Accessor<TreeNodeData[]>;
+}
+
+/** Pluck just the core fields, for one controller to forward to the one it wraps. */
+export const pickCore = (o: CoreControllerOptions): CoreControllerOptions => ({
+  selectedId: o.selectedId,
+  searchQuery: o.searchQuery,
+  matcher: o.matcher,
+  filterMode: o.filterMode,
+  onSelect: o.onSelect,
+  onToggle: o.onToggle,
+  storageKey: o.storageKey,
+  storagePrefix: o.storagePrefix,
+});
 
 /**
  * Imperative controller for the in-memory tree: owns expand/select/search state and

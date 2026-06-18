@@ -1,4 +1,5 @@
 import { type Component } from "solid-js";
+import { coreOptionsFromProps } from "../Tree.jsx";
 import { DatabaseTree, type DatabaseTreeProps } from "../DatabaseTree.jsx";
 import { createSupabaseTreeController, type SupabaseTreeController, type SupabaseTreeControllerOptions } from "./controller.js";
 
@@ -43,14 +44,7 @@ export const SupabaseTree: Component<SupabaseTreeProps> = (props) => {
       queryClient: props.queryClient,
       heartbeatMs: props.heartbeatMs,
       onLockLost: props.onLockLost,
-      selectedId: () => props.selectedId,
-      searchQuery: () => props.searchQuery,
-      matcher: props.matcher,
-      filterMode: props.filterMode,
-      onSelect: props.onSelect,
-      onToggle: props.onToggle,
-      storageKey: props.storageKey,
-      storagePrefix: props.storagePrefix,
+      ...coreOptionsFromProps(props),
     });
 
   return (

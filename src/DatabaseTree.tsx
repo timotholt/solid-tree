@@ -1,6 +1,7 @@
 import { Component } from "solid-js";
 import { QueryClient } from "@tanstack/solid-query";
 import { type TreeNodeData, type TreeSource } from "./types.js";
+import { coreOptionsFromProps } from "./Tree.jsx";
 import { VirtualTree, type VirtualTreeProps } from "./VirtualTree.jsx";
 import {
   createDatabaseTreeController,
@@ -30,14 +31,7 @@ export const DatabaseTree: Component<DatabaseTreeProps> = (props) => {
     createDatabaseTreeController({
       source: props.source!,
       queryClient: props.queryClient,
-      selectedId: () => props.selectedId,
-      searchQuery: () => props.searchQuery,
-      matcher: props.matcher,
-      filterMode: props.filterMode,
-      onSelect: props.onSelect,
-      onToggle: props.onToggle,
-      storageKey: props.storageKey,
-      storagePrefix: props.storagePrefix,
+      ...coreOptionsFromProps(props),
     });
 
   // Render the lazy-load placeholder distinctly; otherwise delegate to consumer/default.

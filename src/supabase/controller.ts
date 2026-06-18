@@ -1,15 +1,16 @@
 import { createSignal, onCleanup, type Accessor } from "solid-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { QueryClient } from "@tanstack/solid-query";
-import { type TreeNodeData, type TreeSource, type TreeMatcher } from "../types.js";
+import { type TreeNodeData, type TreeSource } from "../types.js";
 import {
   createDatabaseTreeController,
   type DatabaseTreeController,
 } from "../DatabaseTreeController.js";
+import { pickCore, type CoreControllerOptions } from "../controller.js";
 import { supabaseSource, type SupabaseSourceConfig } from "./source.js";
 import { createSupabaseLock } from "./lock.js";
 
-export interface SupabaseTreeControllerOptions {
+export interface SupabaseTreeControllerOptions extends CoreControllerOptions {
   client: SupabaseClient;
   table: string;
   toNode: SupabaseSourceConfig["toNode"];
@@ -31,16 +32,8 @@ export interface SupabaseTreeControllerOptions {
   onLockLost?: (id: string) => void;
   /** Extract the lock owner from a node, for realtime lock-loss detection. */
   lockedBy?: (node: TreeNodeData) => string | null;
-
-  // ── forwarded to the core/db controller ──────────────────────────────────
-  selectedId?: Accessor<string | null | undefined>;
-  searchQuery?: Accessor<string | undefined>;
-  matcher?: TreeMatcher;
-  filterMode?: "prune" | "dim";
-  onSelect?: (node: TreeNodeData) => void;
-  onToggle?: (id: string, expanded: boolean) => void;
-  storageKey?: string;
-  storagePrefix?: string;
+  // (core options — selectedId/searchQuery/matcher/filterMode/onSelect/onToggle/
+  //  storageKey/storagePrefix — come from CoreControllerOptions)
 }
 
 /** {@link DatabaseTreeController} plus collaborative record locking. */
@@ -101,18 +94,7 @@ export function createSupabaseTreeController(opts: SupabaseTreeControllerOptions
       : undefined,
   };
 
-  const db = createDatabaseTreeController({
-    source,
-    queryClient: opts.queryClient,
-    selectedId: opts.selectedId,
-    searchQuery: opts.searchQuery,
-    matcher: opts.matcher,
-    filterMode: opts.filterMode,
-    onSelect: opts.onSelect,
-    onToggle: opts.onToggle,
-    storageKey: opts.storageKey,
-    storagePrefix: opts.storagePrefix,
-  });
+  const db = createDatabaseTreeController({ source, queryClient: opts.queryClient, ...pickCore(opts) });
 
   return {
     ...db,
