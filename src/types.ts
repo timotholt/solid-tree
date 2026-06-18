@@ -59,6 +59,21 @@ export interface TreeProps {
   noMatchesLabel?: string;
 }
 
+/**
+ * Async data source for `<DatabaseTree>`. Backend-agnostic — a Supabase/REST/local
+ * adapter implements it. Nodes returned should set `payload.leaf === true` for nodes
+ * with no children (so the tree knows not to show an expander); any other node is
+ * treated as lazily-expandable when `getChildren` is provided.
+ */
+export interface TreeSource {
+  /** Top-level nodes. */
+  getRoots(): Promise<TreeNodeData[]>;
+  /** Children of a node, fetched lazily on first expand. Omit for flat sources. */
+  getChildren?(node: TreeNodeData): Promise<TreeNodeData[]>;
+  /** Server-side search → flat matching nodes. (Ancestor hydration is a future step.) */
+  search?(query: string): Promise<TreeNodeData[]>;
+}
+
 /** One row in the linearized, currently-visible view of the tree. */
 export interface FlatRow {
   node: TreeNodeData;

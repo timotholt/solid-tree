@@ -10,12 +10,24 @@ export default defineConfig({
   plugins: [solid()],
   build: {
     lib: {
-      entry: resolve(__dirname, "src/index.tsx"),
+      // Multi-entry: base (.) + the /virtual subpath. /database added in Phase 3.
+      entry: {
+        index: resolve(__dirname, "src/index.tsx"),
+        virtual: resolve(__dirname, "src/virtual.tsx"),
+        database: resolve(__dirname, "src/database.tsx"),
+      },
       formats: ["es"],
-      fileName: () => "index.js",
     },
     rollupOptions: {
-      external: ["solid-js", "solid-js/web", "solid-js/store"],
+      // Keep all peers external — never bundle Solid or the optional adapters.
+      external: [
+        "solid-js",
+        "solid-js/web",
+        "solid-js/store",
+        "@tanstack/solid-virtual",
+        "@tanstack/solid-query",
+      ],
+      output: { entryFileNames: "[name].js" },
     },
     target: "esnext",
     minify: false,

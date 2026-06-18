@@ -12,6 +12,16 @@ pluggable matcher, built-in highlight).
 `solid` export condition so your app's `vite-plugin-solid` compiles it, keeping a
 single Solid instance.
 
+### Three tiers (import only what you need)
+| import | for | extra peer |
+| --- | --- | --- |
+| `@timotholt/solid-tree` | `<Tree>` — recursive, in-memory, grows with content | none |
+| `@timotholt/solid-tree/virtual` | `<VirtualTree>` — windowed, large in-memory lists | `@tanstack/solid-virtual` |
+| `@timotholt/solid-tree/database` | `<DatabaseTree>` — async source, lazy-load, cached | `+ @tanstack/solid-query` |
+
+Same `TreeNodeData`/props/tokens across all three. The base import pulls zero extra
+deps. **Consumers must `resolve.dedupe` solid-js** (+ any tier peers) — see AGENTS.md.
+
 ## Install (git dependency)
 
 No registry needed — install straight from the git repo. **Use a `#semver:` range**

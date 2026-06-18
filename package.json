@@ -1,6 +1,6 @@
 {
   "name": "@timotholt/solid-tree",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "A small, themeable SolidJS tree-view component (expand/collapse with persistence, selection, icons, counts, dividers, per-node action slots).",
   "license": "MIT",
   "type": "module",
@@ -22,6 +22,20 @@
         "default": "./dist/index.js"
       }
     },
+    "./virtual": {
+      "solid": "./src/virtual.tsx",
+      "import": {
+        "types": "./dist/virtual.d.ts",
+        "default": "./dist/virtual.js"
+      }
+    },
+    "./database": {
+      "solid": "./src/database.tsx",
+      "import": {
+        "types": "./dist/database.d.ts",
+        "default": "./dist/database.js"
+      }
+    },
     "./theme.css": "./src/theme.css"
   },
   "scripts": {
@@ -29,9 +43,21 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
+    "@tanstack/solid-query": "^5.0.0",
+    "@tanstack/solid-virtual": "^3.0.0",
     "solid-js": "^1.6.0"
   },
+  "peerDependenciesMeta": {
+    "@tanstack/solid-virtual": {
+      "optional": true
+    },
+    "@tanstack/solid-query": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@tanstack/solid-query": "^5.101.0",
+    "@tanstack/solid-virtual": "^3.13.0",
     "solid-js": "^1.9.11",
     "typescript": "^5.6.0",
     "vite": "^5.4.0",

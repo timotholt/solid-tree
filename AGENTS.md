@@ -134,6 +134,49 @@ Rows grow with content (no fixed height). For 2/3/N-line items: set `--tree-labe
 ## Virtualization (future)
 `<Tree>` is recursive, grows with content, no deps — fine up to a few thousand nodes. For 10k+ a separate `<VirtualTree>` is planned (see `docs/SPEC-virtualization.md`): same `TreeNodeData`/props/tokens, adds windowing via `@tanstack/solid-virtual` + a bounded-height container + `measureElement` + `scrollToIndex`. The seam is shipped: `flattenVisible(data, expanded) → FlatRow[]` (exported; dividers marked `navigable:false`). Not built yet — don't import `VirtualTree`.
 
+## `<VirtualTree>` — windowed, for large lists
+Same API + tokens as `<Tree>`, but renders only the visible window via
+`@tanstack/solid-virtual`. Use for big in-memory lists (thousands+). Import from the
+subpath; it has extra requirements:
+```tsx
+import { VirtualTree } from "@timotholt/solid-tree/virtual";
+// REQUIRES a bounded-height parent (or pass viewportStyle). It fills 100% height.
+<div style="height:420px">
+  <VirtualTree data={data} selectedId={sel()} searchQuery={q()} onSelect={...} />
+</div>
+```
+- Extra props: `estimateSize?` (px, default 32 — tune to common row), `overscan?`
+  (default 6), `class?`/`viewportStyle?` (the scroll viewport), `onRangeChange?(start,end)`
+  (the lazy-paging seam for the future `<DatabaseTree>`).
+- Peer dep `@tanstack/solid-virtual` (optional — only `/virtual` needs it).
+- **Consumer MUST dedupe solid-js** in their bundler, or a prod build can pull a
+  second solid-js instance and `ref`/`use()` directives silently no-op (blank list).
+  Vite: `resolve: { dedupe: ['solid-js', '@tanstack/solid-virtual'] }`. Also
+  `optimizeDeps: { exclude: ['@timotholt/solid-tree'] }`.
+
+## `<DatabaseTree>` — async, source-backed
+Same API, but takes a `source` instead of in-memory `data`. Async roots + lazy
+children-on-expand, cached via TanStack Query, rendered windowed via VirtualTree.
+```tsx
+import { DatabaseTree } from "@timotholt/solid-tree/database";
+import type { TreeSource } from "@timotholt/solid-tree/database";
+
+const source: TreeSource = {
+  getRoots: () => supabase.from("nodes").select().is("parent_id", null).then(r => r.data.map(toNode)),
+  getChildren: (node) => supabase.from("nodes").select().eq("parent_id", node.id).then(r => r.data.map(toNode)),
+  // search?(query) → flat matches (ancestor hydration is a future step)
+};
+<div style="height:420px"><DatabaseTree source={source} selectedId={sel()} onSelect={...} /></div>
+```
+- `TreeSource`: `getRoots()` required; `getChildren?(node)` for lazy expand; `search?(query)` optional. Mark leaf nodes with `payload.leaf === true` so they don't show an expander.
+- Peers (both optional): `@tanstack/solid-query` + `@tanstack/solid-virtual`.
+- Makes its own QueryClient, or pass `queryClient` to reuse the app's.
+- Same dedupe + viewport-height + bounded-parent rules as VirtualTree.
+- Loading-on-expand shows a transient "Loading…" placeholder row.
+- v1 search is client-side over loaded nodes; server `source.search` + ancestor
+  hydration + scroll-paging (via VirtualTree `onRangeChange`) + realtime are the
+  documented next steps. A `<SupabaseTree>` preset would just wire a Supabase source.
+
 ## What it does NOT do (don't assume these)
 - No multi-select, no checkboxes. Single selection only.
 - No drag-and-drop, no inline rename, no context menu.
