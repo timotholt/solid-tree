@@ -72,11 +72,14 @@ begin
 end $$;
 
 -- 4. Grants — RPCs callable by signed-in users only; revoke from anon/public ───
+-- NOTE: Supabase auto-grants function EXECUTE to anon + authenticated via default
+-- privileges, so revoking from PUBLIC alone is NOT enough — anon keeps its own
+-- grant. Revoke from anon explicitly, then grant only to authenticated.
 revoke all on function
   public.acquire_lock(uuid), public.touch_lock(uuid),
   public.release_lock(uuid), public.bump_balance(uuid, numeric),
   public.scratch_seed(int)
-  from public;
+  from public, anon;
 grant execute on function
   public.acquire_lock(uuid), public.touch_lock(uuid),
   public.release_lock(uuid), public.bump_balance(uuid, numeric),

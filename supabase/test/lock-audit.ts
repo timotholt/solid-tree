@@ -7,6 +7,7 @@
 // Reads supabase/.env automatically. Just:  npm run audit
 // (Prereq: `npm run setup` first.)
 
+import "../ws-polyfill.mjs";
 import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -54,26 +55,37 @@ async function main() {
   if (selErr || !rows?.length) throw new Error("seed/select failed: " + (selErr?.message ?? "no rows"));
   const X = rows[0].id as string;
 
+  // Ground truth: read X's real state as B (authenticated can select). A refused
+  // RPC returns a NULL-composite that PostgREST serializes as an object of null
+  // fields (NOT json null), so assert on the DB, never the RPC return shape.
+  const read = async () =>
+    (await b.from("scratch_lock_demo").select("locked_by,balance").eq("id", X).single()).data as
+      | { locked_by: string | null; balance: number }
+      | null;
+
   // B acquires X.
   const bAcq = await b.rpc("acquire_lock", { _id: X });
-  ok(!!bAcq.data && (bAcq.data as any).locked_by === bId, "B can acquire a free lock");
+  ok((bAcq.data as any)?.locked_by === bId, "B can acquire a free lock");
 
-  // §8 checks, all as user A against B's lock on X.
-  const aAcq = await a.rpc("acquire_lock", { _id: X });
-  ok(aAcq.data === null, "A cannot acquire B's lock (acquire returns null)");
+  // §8 — every attempt below is user A against B's lock; assert via ground truth.
+  await a.rpc("acquire_lock", { _id: X });
+  ok((await read())?.locked_by === bId, "A cannot acquire B's lock (B still holds)");
 
-  const aSteal = await a.from("scratch_lock_demo").update({ locked_by: aId, locked_at: new Date().toISOString() }).eq("id", X).select();
-  ok((aSteal.data?.length ?? 0) === 0, "A cannot steal via direct UPDATE locked_by", aSteal.error?.message ?? "0 rows affected");
+  const aSteal = await a.from("scratch_lock_demo")
+    .update({ locked_by: aId, locked_at: new Date().toISOString() }).eq("id", X).select();
+  ok((aSteal.data?.length ?? 0) === 0 && (await read())?.locked_by === bId,
+    "A cannot steal via direct UPDATE locked_by");
 
   await a.rpc("release_lock", { _id: X });
-  const afterRel = await a.from("scratch_lock_demo").select("locked_by").eq("id", X).single();
-  ok((afterRel.data as any)?.locked_by === bId, "A's release_lock does NOT clear B's lock");
+  ok((await read())?.locked_by === bId, "A's release_lock does NOT clear B's lock");
 
-  const aBump = await a.rpc("bump_balance", { _id: X, _delta: 999 });
-  ok(aBump.data === null, "A cannot edit (bump_balance) a row it doesn't hold");
+  const bal0 = Number((await read())?.balance ?? 0);
+  await a.rpc("bump_balance", { _id: X, _delta: 999 });
+  ok(Number((await read())?.balance) === bal0, "A cannot edit (bump_balance) a row it doesn't hold");
 
-  const aDirectData = await a.from("scratch_lock_demo").update({ balance: 999 }).eq("id", X).select();
-  ok((aDirectData.data?.length ?? 0) === 0, "A cannot edit via direct UPDATE balance (RLS gates on holder)");
+  const aData = await a.from("scratch_lock_demo").update({ balance: 999 }).eq("id", X).select();
+  ok((aData.data?.length ?? 0) === 0 && Number((await read())?.balance) === bal0,
+    "A cannot edit via direct UPDATE balance (RLS gates on holder)");
 
   const aForge = await a.from("scratch_lock_demo").update({ locked_by: bId }).eq("id", X).select();
   ok((aForge.data?.length ?? 0) === 0, "A cannot forge locked_by on a row it doesn't hold");
@@ -81,13 +93,13 @@ async function main() {
   const anonRead = await anon.from("scratch_lock_demo").select("id").limit(1);
   ok((anonRead.data?.length ?? 0) === 0 || !!anonRead.error, "anon (no JWT) cannot read records");
   const anonAcq = await anon.rpc("acquire_lock", { _id: X });
-  ok(!!anonAcq.error || anonAcq.data === null, "anon cannot acquire a lock");
+  ok(!!anonAcq.error || (await read())?.locked_by === bId, "anon cannot acquire a lock");
 
   // Holder CAN edit.
-  const bBump = await b.rpc("bump_balance", { _id: X, _delta: 100 });
-  ok(!!bBump.data && Number((bBump.data as any).balance) === 100, "B (holder) CAN edit its own row");
+  await b.rpc("bump_balance", { _id: X, _delta: 100 });
+  ok(Number((await read())?.balance) === bal0 + 100, "B (holder) CAN edit its own row");
 
-  // Cleanup: B releases.
+  // Cleanup.
   await b.rpc("release_lock", { _id: X });
 
   console.log(`\n${fail === 0 ? "✅ ALL PASS" : "🔴 FAILURES"}: ${pass} passed, ${fail} failed`);
