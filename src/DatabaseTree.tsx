@@ -1,7 +1,7 @@
 import { Component, createMemo, onMount, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
 import { QueryClient, QueryClientProvider, createQuery } from "@tanstack/solid-query";
-import { type TreeNodeData, type TreeSource } from "./types.js";
+import { type TreeNodeData, type TreeSource, type TreeChange } from "./types.js";
 import { findNode } from "./search.js";
 import { VirtualTree, type VirtualTreeProps } from "./VirtualTree.jsx";
 
@@ -81,31 +81,27 @@ const DatabaseTreeInner: Component<DatabaseTreeProps & { client: QueryClient }> 
   const patchRoots = (fn: (old: TreeNodeData[]) => TreeNodeData[]) =>
     props.client.setQueryData<TreeNodeData[]>(ROOTS_KEY, (old) => fn(old ?? []));
 
-  const handleChange = (c: { type: string } & Record<string, unknown>) => {
+  const handleChange = (c: TreeChange) => {
     if (c.type === "update") {
-      const node = c.node as TreeNodeData;
-      patchRoots((arr) => arr.map((n) => (n.id === node.id ? { ...n, ...node } : n)));
+      patchRoots((arr) => arr.map((n) => (n.id === c.node.id ? { ...n, ...c.node } : n)));
       for (const parentId of Object.keys(childrenStore)) {
-        const idx = childrenStore[parentId].findIndex((n) => n.id === node.id);
-        if (idx >= 0) setChildren(parentId, idx, (n) => ({ ...n, ...node }));
+        const idx = childrenStore[parentId].findIndex((n) => n.id === c.node.id);
+        if (idx >= 0) setChildren(parentId, idx, (n) => ({ ...n, ...c.node }));
       }
     } else if (c.type === "insert") {
-      const node = c.node as TreeNodeData;
-      const parentId = c.parentId as string | null;
-      if (parentId == null) patchRoots((arr) => [...arr, node]);
-      else if (childrenStore[parentId]) setChildren(parentId, (arr) => [...arr, node]);
-    } else if (c.type === "remove") {
-      const id = c.id as string;
-      patchRoots((arr) => arr.filter((n) => n.id !== id));
+      if (c.parentId == null) patchRoots((arr) => [...arr, c.node]);
+      else if (childrenStore[c.parentId]) setChildren(c.parentId, (arr) => [...arr, c.node]);
+    } else {
+      patchRoots((arr) => arr.filter((n) => n.id !== c.id));
       for (const parentId of Object.keys(childrenStore)) {
-        if (childrenStore[parentId].some((n) => n.id === id))
-          setChildren(parentId, (arr) => arr.filter((n) => n.id !== id));
+        if (childrenStore[parentId].some((n) => n.id === c.id))
+          setChildren(parentId, (arr) => arr.filter((n) => n.id !== c.id));
       }
     }
   };
 
   onMount(() => {
-    const unsub = props.source.subscribe?.(handleChange as never);
+    const unsub = props.source.subscribe?.(handleChange);
     if (unsub) onCleanup(unsub);
   });
 
