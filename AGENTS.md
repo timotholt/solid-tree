@@ -174,8 +174,28 @@ const source: TreeSource = {
 - Same dedupe + viewport-height + bounded-parent rules as VirtualTree.
 - Loading-on-expand shows a transient "Loading…" placeholder row.
 - v1 search is client-side over loaded nodes; server `source.search` + ancestor
-  hydration + scroll-paging (via VirtualTree `onRangeChange`) + realtime are the
-  documented next steps. A `<SupabaseTree>` preset would just wire a Supabase source.
+  hydration + scroll-paging (via VirtualTree `onRangeChange`) are documented next
+  steps. A `<SupabaseTree>` preset would just wire a Supabase source.
+
+### Live updates (collaborative / realtime)
+`TreeSource.subscribe?(onChange)` makes DatabaseTree patch its cache from live
+events — so collaborators' edits show up without refetch. Return an unsubscribe fn.
+```ts
+type TreeChange =
+  | { type: "update"; node: TreeNodeData }              // fields changed
+  | { type: "insert"; parentId: string | null; node }   // null parent = new root
+  | { type: "remove"; id: string };
+subscribe(onChange) {                                    // e.g. a Supabase channel
+  const ch = supabase.channel("nodes").on("postgres_changes", {...}, (p) => onChange(toChange(p))).subscribe();
+  return () => supabase.removeChannel(ch);
+}
+```
+Only ALREADY-LOADED branches are patched; unloaded ones load fresh on expand.
+**Record locking** rides on this: put `lockedBy` on `payload`; selecting a row
+(your `onSelect`) acquires the lock server-side (atomic), the change broadcasts via
+`subscribe`, and your `renderActionNode` shows 🔒/👤. The tree just reflects — lock
+acquire/release/TTL + RLS enforcement live in your app + Supabase. (See the
+`?database2` example.)
 
 ## What it does NOT do (don't assume these)
 - No multi-select, no checkboxes. Single selection only.

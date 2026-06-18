@@ -1,3 +1,3 @@
 export { DatabaseTree } from "./DatabaseTree.jsx";
 export type { DatabaseTreeProps } from "./DatabaseTree.jsx";
-export type { TreeNodeData, TreeProps, TreeMatcher, TreeSource, FlatRow } from "./types.js";
+export type { TreeNodeData, TreeProps, TreeMatcher, TreeSource, TreeChange, FlatRow } from "./types.js";

@@ -2,12 +2,16 @@
 // simulates latency + lazy children. Mount via /?database.
 import { createSignal, type Component } from "solid-js";
 import { DatabaseTree } from "@timotholt/solid-tree/database";
-import type { TreeSource, TreeNodeData } from "@timotholt/solid-tree/database";
+import type { TreeSource, TreeNodeData, TreeChange } from "@timotholt/solid-tree/database";
 import "@timotholt/solid-tree/theme.css";
 
 // Deliberately slow so the async/loading is obvious — proves it's NOT all in RAM.
 const delay = <T,>(make: () => T, ms = 900): Promise<T> =>
   new Promise((res) => setTimeout(() => res(make()), ms));
+
+// Hold the live subscriber so the demo can fire "external" (collaborator) changes.
+let emit: ((c: TreeChange) => void) | null = null;
+let edits = 0;
 
 // 50 expandable root folders; each lazily yields 20 leaf items on first expand.
 const fakeSource: TreeSource = {
@@ -29,6 +33,10 @@ const fakeSource: TreeSource = {
         payload: { leaf: true },
       }))
     ),
+  subscribe: (onChange) => {
+    emit = onChange; // demo stashes the subscriber so a button can fire "external" edits
+    return () => (emit = null);
+  },
 };
 
 export const DatabaseDemo: Component = () => {
@@ -42,6 +50,15 @@ export const DatabaseDemo: Component = () => {
         children on expand, cached via TanStack Query, windowed. {domRows()} rows in
         DOM. selected: {sel() ?? "(none)"}
       </p>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <button onClick={() => emit?.({ type: "update", node: { id: "r0", label: `Folder 0 ✏️ edited by gf #${++edits}`, type: "group", payload: {} } })}>
+          simulate edit (Folder 0)
+        </button>
+        <button onClick={() => emit?.({ type: "insert", parentId: null, node: { id: "r-new-" + Date.now(), label: "✨ New folder (from gf)", type: "group", payload: {} } })}>
+          simulate insert
+        </button>
+        <button onClick={() => emit?.({ type: "remove", id: "r1" })}>simulate delete (Folder 1)</button>
+      </div>
       <div style="height:420px;border:1px solid #ccc;border-radius:8px;--text-muted:#8a8f98;--border-subtle:rgba(0,0,0,.12);--tree-row-active-bg:rgba(59,130,246,.14)">
         <DatabaseTree
           source={fakeSource}

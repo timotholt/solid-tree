@@ -3,7 +3,8 @@ import { type Component } from "solid-js";
 const links: { href: string; label: string; match: (s: URLSearchParams) => boolean }[] = [
   { href: "/", label: "Gallery (<Tree>)", match: (s) => !s.has("virtual") && !s.has("database") && !s.has("spike") },
   { href: "/?virtual", label: "<VirtualTree>", match: (s) => s.has("virtual") },
-  { href: "/?database", label: "<DatabaseTree>", match: (s) => s.has("database") },
+  { href: "/?database", label: "<DatabaseTree>", match: (s) => s.has("database") && !s.has("database2") },
+  { href: "/?database2", label: "Collaborative", match: (s) => s.has("database2") },
   { href: "/?spike", label: "solid-virtual spike", match: (s) => s.has("spike") },
 ];
 

@@ -65,6 +65,17 @@ export interface TreeProps {
  * with no children (so the tree knows not to show an expander); any other node is
  * treated as lazily-expandable when `getChildren` is provided.
  */
+/**
+ * A live change to the data behind a `<DatabaseTree>` — emitted by `TreeSource.subscribe`
+ * (e.g. a Supabase realtime row event). DatabaseTree patches its cache from these so
+ * collaborators' edits/inserts/deletes (and things like lock state on `payload`) show
+ * up live. Only changes to ALREADY-LOADED branches are applied; the rest load fresh.
+ */
+export type TreeChange =
+  | { type: "update"; node: TreeNodeData } // a node's fields changed (label/status/payload/…)
+  | { type: "insert"; parentId: string | null; node: TreeNodeData } // null parent = a new root
+  | { type: "remove"; id: string }; // a node (and its subtree) was deleted
+
 export interface TreeSource {
   /** Top-level nodes. */
   getRoots(): Promise<TreeNodeData[]>;
@@ -72,6 +83,11 @@ export interface TreeSource {
   getChildren?(node: TreeNodeData): Promise<TreeNodeData[]>;
   /** Server-side search → flat matching nodes. (Ancestor hydration is a future step.) */
   search?(query: string): Promise<TreeNodeData[]>;
+  /**
+   * Live updates. Call `onChange` per change; return an unsubscribe fn. DatabaseTree
+   * subscribes on mount and unsubscribes on cleanup. Omit for static sources.
+   */
+  subscribe?(onChange: (change: TreeChange) => void): () => void;
 }
 
 /** One row in the linearized, currently-visible view of the tree. */
