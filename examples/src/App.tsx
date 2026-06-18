@@ -209,7 +209,7 @@ const ThemedDemo: Component = () => {
   );
 };
 
-// ── 9. Multi-line rows (tokens + renderLabel) ─────────────────────────────────
+// ── 11. Multi-line rows (tokens + renderLabel) ────────────────────────────────
 const MultiLineDemo: Component = () => {
   const [sel, setSel] = createSignal<string | null>("v1");
   const data: TreeNodeData[] = [
@@ -333,7 +333,7 @@ export const App: Component = () => (
     </Demo>
 
     <Demo
-      title="7b. Search — prune + highlight"
+      title="8. Search — prune + highlight"
       blurb="Pass searchQuery. Default mode 'prune' keeps matches + their ancestor path, force-expands to reveal them (without touching saved expand state), and highlights the matched substring. Clear the box to restore the tree exactly as it was."
       code={`<Tree
   data={data}
@@ -345,7 +345,7 @@ export const App: Component = () => (
     </Demo>
 
     <Demo
-      title="7c. Search — dim mode + custom matcher"
+      title="9. Search — dim mode + custom matcher"
       blurb="filterMode='dim' keeps the whole tree and fades non-matches instead of removing them. A custom matcher is the comparator seam — here it matches label OR payload.code (chassis code), so Tree never needs to know payload's shape. Try 'A90' or 'civic'."
       code={`<Tree
   searchQuery={q()}
@@ -360,7 +360,7 @@ export const App: Component = () => (
     </Demo>
 
     <Demo
-      title="8. Theming — tokens + data-attributes"
+      title="10. Theming — tokens + data-attributes"
       blurb="Every opinionated value is a --tree-* CSS var with a sane fallback (inline, so it works with no stylesheet). Override any of them on the container or any ancestor — no specificity fight. Rows also emit data-depth / data-variant / data-selected / data-has-children for CSS/Tailwind targeting."
       code={`.themed-tree {
   --tree-font-size: 15px;
@@ -375,7 +375,7 @@ export const App: Component = () => (
     </Demo>
 
     <Demo
-      title="9. Multi-line rows"
+      title="11. Multi-line rows"
       blurb="Rows aren't fixed-height — they grow with content. Set --tree-label-white-space:normal + --tree-row-align-items:flex-start, then return a stacked block from renderLabel for 2/3/N-line items (e.g. a listing title + specs + status). Selection, chevron, indent all still work on the taller rows."
       code={`/* on the container */
 .list { --tree-label-white-space: normal;
