@@ -1,114 +1,49 @@
-import { Component, createMemo, onMount, onCleanup } from "solid-js";
-import { createStore } from "solid-js/store";
-import { QueryClient, QueryClientProvider, createQuery } from "@tanstack/solid-query";
-import { type TreeNodeData, type TreeSource, type TreeChange } from "./types.js";
-import { findNode } from "./search.js";
+import { Component } from "solid-js";
+import { QueryClient } from "@tanstack/solid-query";
+import { type TreeNodeData, type TreeSource } from "./types.js";
 import { VirtualTree, type VirtualTreeProps } from "./VirtualTree.jsx";
+import {
+  createDatabaseTreeController,
+  type DatabaseTreeController,
+  LOADING_TYPE,
+} from "./DatabaseTreeController.js";
 
-export interface DatabaseTreeProps extends Omit<VirtualTreeProps, "data"> {
+export interface DatabaseTreeProps extends Omit<VirtualTreeProps, "data" | "tree"> {
   /** Async, backend-agnostic source (Supabase/REST/local adapter). */
-  source: TreeSource;
-  /** Reuse an app QueryClient; otherwise DatabaseTree makes its own. */
+  source?: TreeSource;
+  /** Reuse an app QueryClient; otherwise the controller makes its own. */
   queryClient?: QueryClient;
+  /** Drive this view with an external controller; omit to build one from the props. */
+  tree?: DatabaseTreeController;
 }
 
-const LOADING_TYPE = "__solid-tree-loading";
-const loadingChild = (parentId: string): TreeNodeData => ({
-  id: `${parentId}::__loading`,
-  label: "Loading…",
-  type: LOADING_TYPE,
-  payload: { leaf: true },
-});
-
 /**
- * Source-backed tree: async roots + lazy children-on-expand, cached via TanStack
- * Query, rendered windowed via `<VirtualTree>`. `<Tree>`/`<VirtualTree>` take
- * in-memory `data`; this takes a `source` and resolves it to that `data` reactively.
- * Subpath: `@timotholt/solid-tree/database`. Peers: @tanstack/solid-query +
- * @tanstack/solid-virtual (both optional). Dedupe solid-js (see AGENTS).
+ * Source-backed tree: async roots + lazy children-on-expand cached via TanStack Query,
+ * rendered windowed via `<VirtualTree>`, with realtime patches from `source.subscribe`.
+ * Thin view over {@link createDatabaseTreeController}. Subpath:
+ * `@timotholt/solid-tree/database`. Peers: @tanstack/solid-query + @tanstack/solid-virtual
+ * (both optional). Dedupe solid-js (see AGENTS).
  */
 export const DatabaseTree: Component<DatabaseTreeProps> = (props) => {
-  const client = props.queryClient ?? new QueryClient();
-  return (
-    <QueryClientProvider client={client}>
-      <DatabaseTreeInner {...props} client={client} />
-    </QueryClientProvider>
-  );
-};
-
-const DatabaseTreeInner: Component<DatabaseTreeProps & { client: QueryClient }> = (props) => {
-  const rootsQuery = createQuery(() => ({
-    queryKey: ["solid-tree-roots"],
-    queryFn: () => props.source.getRoots(),
-  }));
-
-  // Lazily-loaded children, keyed by parent id (reactive → re-assembles the tree).
-  const [childrenStore, setChildren] = createStore<Record<string, TreeNodeData[]>>({});
-
-  const expandable = (node: TreeNodeData) =>
-    !!props.source.getChildren && node.payload?.leaf !== true && node.type !== LOADING_TYPE;
-
-  // Build the in-memory tree VirtualTree renders: attach loaded children, or a
-  // single "Loading…" placeholder so expandable-but-unloaded nodes show a chevron.
-  const assemble = (node: TreeNodeData): TreeNodeData => {
-    const loaded = childrenStore[node.id];
-    if (loaded) return { ...node, children: loaded.map(assemble) };
-    if (expandable(node)) return { ...node, children: [loadingChild(node.id)] };
-    return node;
-  };
-
-  const data = createMemo(() =>
-    // While the first roots fetch is in flight, show a single Loading… row.
-    rootsQuery.isLoading ? [loadingChild("__roots")] : (rootsQuery.data ?? []).map(assemble)
-  );
-
-  // Fetch children on first expand (cached + deduped by Query).
-  const fetchChildren = async (node: TreeNodeData) => {
-    if (childrenStore[node.id] || !props.source.getChildren) return;
-    const kids = await props.client.fetchQuery({
-      queryKey: ["solid-tree-children", node.id],
-      queryFn: () => props.source.getChildren!(node),
+  const tree =
+    props.tree ??
+    createDatabaseTreeController({
+      source: props.source!,
+      queryClient: props.queryClient,
+      selectedId: () => props.selectedId,
+      searchQuery: () => props.searchQuery,
+      matcher: props.matcher,
+      filterMode: props.filterMode,
+      onSelect: props.onSelect,
+      onToggle: props.onToggle,
+      storageKey: props.storageKey,
+      storagePrefix: props.storagePrefix,
     });
-    setChildren(node.id, kids);
-  };
 
-  // ── Live updates ───────────────────────────────────────────────────────────
-  // Patch the cache from source.subscribe events so collaborators' changes (and
-  // lock state on payload) show up live. Roots live in the Query cache; loaded
-  // children in childrenStore — patch whichever holds the node. Only already-loaded
-  // branches are touched; unloaded ones load fresh on expand.
-  const ROOTS_KEY = ["solid-tree-roots"];
-  const patchRoots = (fn: (old: TreeNodeData[]) => TreeNodeData[]) =>
-    props.client.setQueryData<TreeNodeData[]>(ROOTS_KEY, (old) => fn(old ?? []));
-
-  // Apply `fn` to the roots and every loaded child list that contains `id`. A node
-  // lives in exactly one list, so only the list(s) holding it are touched.
-  const patchLists = (id: string, fn: (arr: TreeNodeData[]) => TreeNodeData[]) => {
-    patchRoots((arr) => (arr.some((n) => n.id === id) ? fn(arr) : arr));
-    for (const parentId of Object.keys(childrenStore))
-      if (childrenStore[parentId].some((n) => n.id === id)) setChildren(parentId, fn);
-  };
-
-  const handleChange = (c: TreeChange) => {
-    if (c.type === "update") {
-      patchLists(c.node.id, (arr) => arr.map((n) => (n.id === c.node.id ? { ...n, ...c.node } : n)));
-    } else if (c.type === "insert") {
-      if (c.parentId == null) patchRoots((arr) => [...arr, c.node]);
-      else if (childrenStore[c.parentId]) setChildren(c.parentId, (arr) => [...arr, c.node]);
-    } else {
-      patchLists(c.id, (arr) => arr.filter((n) => n.id !== c.id));
-    }
-  };
-
-  onMount(() => {
-    const unsub = props.source.subscribe?.(handleChange);
-    if (unsub) onCleanup(unsub);
-  });
-
-  // Render the placeholder distinctly; otherwise delegate to the consumer / default.
+  // Render the lazy-load placeholder distinctly; otherwise delegate to consumer/default.
   const renderLabel = (node: TreeNodeData) => {
     if (node.type === LOADING_TYPE) {
-      // .solid-tree-loading is a styling hook (e.g. a spinner); consumers can target it.
+      // .solid-tree-loading is a styling hook (e.g. a spinner) consumers can target.
       return <span class="solid-tree-loading" style="opacity:.6;font-style:italic">{node.label}</span>;
     }
     return props.renderLabel ? props.renderLabel(node) : node.label;
@@ -116,31 +51,17 @@ const DatabaseTreeInner: Component<DatabaseTreeProps & { client: QueryClient }> 
 
   return (
     <VirtualTree
-      data={data()}
-      selectedId={props.selectedId}
-      onSelect={props.onSelect}
-      searchQuery={props.searchQuery}
-      matcher={props.matcher}
-      filterMode={props.filterMode}
+      tree={tree}
+      renderLabel={renderLabel}
+      renderActionNode={props.renderActionNode}
       noMatchesLabel={props.noMatchesLabel}
-      storageKey={props.storageKey}
-      storagePrefix={props.storagePrefix}
       basePadding={props.basePadding}
       indentStep={props.indentStep}
       estimateSize={props.estimateSize}
       overscan={props.overscan}
       class={props.class}
       viewportStyle={props.viewportStyle}
-      renderActionNode={props.renderActionNode}
-      renderLabel={renderLabel}
       onRangeChange={props.onRangeChange}
-      onToggle={(id, isExpanded) => {
-        if (isExpanded) {
-          const node = findNode(data(), id);
-          if (node) void fetchChildren(node);
-        }
-        props.onToggle?.(id, isExpanded);
-      }}
     />
   );
 };

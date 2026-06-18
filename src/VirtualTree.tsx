@@ -1,13 +1,13 @@
 import { Component, For, Show, createMemo, createSignal, createEffect, onMount, JSX } from "solid-js";
 import { createVirtualizer } from "./createVirtualizer.js"; // #1203-patched (preserves measurements on expand)
 import { TreeContext } from "./context.js";
-import { type TreeProps, type FlatRow } from "./types.js";
+import { type FlatRow } from "./types.js";
 import { createTreeController, type TreeController } from "./controller.js";
-import { controllerOptionsFromProps, ctxFromController } from "./Tree.jsx";
+import { controllerOptionsFromProps, ctxFromController, type CoreViewProps } from "./Tree.jsx";
 import { buildContainerVars } from "./tokens.js";
 import { TreeRow } from "./TreeRow.jsx";
 
-export interface VirtualTreeProps extends TreeProps {
+export interface VirtualTreeProps extends CoreViewProps {
   /** Drive this view with an external controller; omit to build one from the props. */
   tree?: TreeController;
   /**

@@ -1,19 +1,28 @@
 import { Component, For, Show } from "solid-js";
 import { TreeContext, type TreeCtx } from "./context.js";
-import { type TreeProps } from "./types.js";
+import { type TreeProps, type TreeNodeData } from "./types.js";
 import { createTreeController, type TreeController } from "./controller.js";
 import { buildContainerVars } from "./tokens.js";
 import { TreeBranch } from "./TreeBranch.jsx";
 
-export interface TreeViewProps extends TreeProps {
+/**
+ * View props common to every tier: the controller inputs, but with `data`/`onSelect`
+ * optional because the controller-driven form (`tree={...}`) supplies them itself.
+ */
+export type CoreViewProps = Omit<TreeProps, "data" | "onSelect"> & {
+  data?: TreeNodeData[];
+  onSelect?: (node: TreeNodeData) => void;
+};
+
+export interface TreeViewProps extends CoreViewProps {
   /** Drive this view with an external controller; omit to build one from the props. */
   tree?: TreeController;
 }
 
 /** Adapt a component's props into TreeController options (reactive via accessors). */
-export function controllerOptionsFromProps(props: TreeProps) {
+export function controllerOptionsFromProps(props: CoreViewProps) {
   return {
-    data: () => props.data,
+    data: () => props.data ?? [],
     selectedId: () => props.selectedId,
     searchQuery: () => props.searchQuery,
     matcher: props.matcher,
