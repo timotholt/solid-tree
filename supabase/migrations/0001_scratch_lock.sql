@@ -71,6 +71,23 @@ returns void language sql security definer set search_path = public as $$
    where locked_by = auth.uid();
 $$;
 
+-- ADMIN force-release: clear ANY lock, but only for an admin (app_metadata.app_admin
+-- in the caller's JWT). Non-admins get an exception — this is the testable core of the
+-- "use it or lose it" override (the Edge fn additionally revokes sessions, which an RPC
+-- can't do). auth.jwt() is the verified JWT, so the admin claim is unforgeable.
+create or replace function public.admin_force_release(_id uuid)
+returns public.scratch_lock_demo
+language plpgsql security definer set search_path = public as $$
+declare r public.scratch_lock_demo;
+begin
+  if coalesce((auth.jwt() -> 'app_metadata' ->> 'app_admin')::boolean, false) is not true then
+    raise exception 'not authorized: admin only' using errcode = '42501';
+  end if;
+  update scratch_lock_demo set locked_by = null, locked_at = null
+   where id = _id returning * into r;
+  return r;
+end $$;
+
 -- Edit data: holder-only money move (proves RLS gates edits, not just UI).
 create or replace function public.bump_balance(_id uuid, _delta numeric)
 returns public.scratch_lock_demo
@@ -91,11 +108,13 @@ end $$;
 revoke all on function
   public.acquire_lock(uuid), public.touch_lock(uuid),
   public.release_lock(uuid), public.release_all_locks(),
+  public.admin_force_release(uuid),
   public.bump_balance(uuid, numeric), public.scratch_seed(int)
   from public, anon;
 grant execute on function
   public.acquire_lock(uuid), public.touch_lock(uuid),
   public.release_lock(uuid), public.release_all_locks(),
+  public.admin_force_release(uuid),
   public.bump_balance(uuid, numeric), public.scratch_seed(int)
   to authenticated;
 
