@@ -38,3 +38,11 @@ export const STYLE_DEFAULTS = {
 } satisfies JSX.CSSProperties;
 
 export const tok = (name: string) => `var(--tree-${name}, var(--tree-${name}-default))`;
+
+// Token layer + per-instance indent pins — spread onto the rows' ancestor so the
+// --tree-* tokens inherit down. A view concern (styling), kept out of the controller.
+export const buildContainerVars = (basePadding?: number, indentStep?: number): JSX.CSSProperties => ({
+  ...STYLE_DEFAULTS,
+  ...(basePadding != null ? { "--tree-indent-base": `${basePadding}px` } : {}),
+  ...(indentStep != null ? { "--tree-indent-step": `${indentStep}px` } : {}),
+});

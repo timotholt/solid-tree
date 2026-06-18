@@ -2,11 +2,14 @@ import { Component, For, Show, createMemo, createSignal, createEffect, onMount, 
 import { createVirtualizer } from "./createVirtualizer.js"; // #1203-patched (preserves measurements on expand)
 import { TreeContext } from "./context.js";
 import { type TreeProps, type FlatRow } from "./types.js";
-import { createTreeState } from "./state.js";
-import { flattenVisible } from "./search.js";
+import { createTreeController, type TreeController } from "./controller.js";
+import { controllerOptionsFromProps, ctxFromController } from "./Tree.jsx";
+import { buildContainerVars } from "./tokens.js";
 import { TreeRow } from "./TreeRow.jsx";
 
 export interface VirtualTreeProps extends TreeProps {
+  /** Drive this view with an external controller; omit to build one from the props. */
+  tree?: TreeController;
   /**
    * INITIAL row-height guess (px) before anything is measured. Default 28. You
    * rarely need to set it — once rows render, the estimate self-tunes to a running
@@ -72,10 +75,11 @@ const VirtualRow: Component<{
  * Async/data-source concerns live one tier up in `<DatabaseTree>`.
  */
 export const VirtualTree: Component<VirtualTreeProps> = (props) => {
-  const s = createTreeState(props);
+  const tree = props.tree ?? createTreeController(controllerOptionsFromProps(props));
+  const ctx = ctxFromController(tree, props);
 
-  // The flat visible row list — the same linearization <Tree> walks recursively.
-  const rows = createMemo(() => flattenVisible(s.view().data, s.effectiveExpanded()));
+  // The flat visible row list — memoized in the view (controller recomputes on read).
+  const rows = createMemo(() => tree.flatRows());
 
   // GOTCHA: publish the scroll element in onMount, not the ref — Solid builds DOM
   // from a <template> whose ownerDocument.defaultView is null, which the adapter
@@ -132,7 +136,7 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
     <div
       ref={(el) => (viewportEl = el)}
       class={`solid-tree-container solid-tree-viewport${props.class ? " " + props.class : ""}`}
-      data-searching={s.searching() ? "" : undefined}
+      data-searching={tree.searching() ? "" : undefined}
       style={{
         // Bounded-height scroll viewport. overflow-anchor:none keeps dynamic
         // measurement from fighting the browser's scroll anchoring. Token layer
@@ -141,13 +145,13 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
         overflow: "auto",
         "overflow-anchor": "none",
         height: "100%",
-        ...s.containerVars(),
+        ...buildContainerVars(props.basePadding, props.indentStep),
         ...(props.viewportStyle ?? {}),
       }}
     >
-      <TreeContext.Provider value={s.ctx}>
+      <TreeContext.Provider value={ctx}>
         <Show
-          when={!s.noMatches()}
+          when={!tree.noMatches()}
           fallback={<div class="solid-tree-empty">{props.noMatchesLabel ?? "No matches"}</div>}
         >
           <div style={`position:relative; width:100%; height:${virtualizer.getTotalSize()}px`}>
