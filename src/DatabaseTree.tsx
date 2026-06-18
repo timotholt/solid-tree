@@ -81,22 +81,22 @@ const DatabaseTreeInner: Component<DatabaseTreeProps & { client: QueryClient }> 
   const patchRoots = (fn: (old: TreeNodeData[]) => TreeNodeData[]) =>
     props.client.setQueryData<TreeNodeData[]>(ROOTS_KEY, (old) => fn(old ?? []));
 
+  // Apply `fn` to the roots and every loaded child list that contains `id`. A node
+  // lives in exactly one list, so only the list(s) holding it are touched.
+  const patchLists = (id: string, fn: (arr: TreeNodeData[]) => TreeNodeData[]) => {
+    patchRoots((arr) => (arr.some((n) => n.id === id) ? fn(arr) : arr));
+    for (const parentId of Object.keys(childrenStore))
+      if (childrenStore[parentId].some((n) => n.id === id)) setChildren(parentId, fn);
+  };
+
   const handleChange = (c: TreeChange) => {
     if (c.type === "update") {
-      patchRoots((arr) => arr.map((n) => (n.id === c.node.id ? { ...n, ...c.node } : n)));
-      for (const parentId of Object.keys(childrenStore)) {
-        const idx = childrenStore[parentId].findIndex((n) => n.id === c.node.id);
-        if (idx >= 0) setChildren(parentId, idx, (n) => ({ ...n, ...c.node }));
-      }
+      patchLists(c.node.id, (arr) => arr.map((n) => (n.id === c.node.id ? { ...n, ...c.node } : n)));
     } else if (c.type === "insert") {
       if (c.parentId == null) patchRoots((arr) => [...arr, c.node]);
       else if (childrenStore[c.parentId]) setChildren(c.parentId, (arr) => [...arr, c.node]);
     } else {
-      patchRoots((arr) => arr.filter((n) => n.id !== c.id));
-      for (const parentId of Object.keys(childrenStore)) {
-        if (childrenStore[parentId].some((n) => n.id === c.id))
-          setChildren(parentId, (arr) => arr.filter((n) => n.id !== c.id));
-      }
+      patchLists(c.id, (arr) => arr.filter((n) => n.id !== c.id));
     }
   };
 
