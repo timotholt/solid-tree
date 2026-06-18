@@ -1,7 +1,7 @@
-import { Component, For, Show, createMemo, createSignal, createEffect, onMount } from "solid-js";
+import { Component, For, Show, createMemo, createSignal, createEffect, onMount, JSX } from "solid-js";
 import { createVirtualizer } from "./createVirtualizer.js"; // #1203-patched (preserves measurements on expand)
 import { TreeContext } from "./context.js";
-import { type TreeProps } from "./types.js";
+import { type TreeProps, type FlatRow } from "./types.js";
 import { createTreeState } from "./state.js";
 import { flattenVisible } from "./search.js";
 import { TreeRow } from "./TreeRow.jsx";
@@ -18,14 +18,52 @@ export interface VirtualTreeProps extends TreeProps {
   overscan?: number;
   /** Class on the scroll viewport (give it a bounded height somehow). */
   class?: string;
-  /** Inline style merged onto the scroll viewport (e.g. a fixed height). */
-  viewportStyle?: string;
+  /** Extra inline style merged onto the scroll viewport (e.g. a fixed height). */
+  viewportStyle?: JSX.CSSProperties;
   /**
    * Fires with the first/last visible flat-row index whenever the window moves.
    * The seam `<DatabaseTree>` uses to lazy-load / page. (Pure: just reports.)
    */
   onRangeChange?: (startIndex: number, endIndex: number) => void;
 }
+
+// Minimal shape we use off a virtual item (the patched adapter is untyped).
+interface VItem {
+  index: number;
+  start: number;
+}
+
+// One windowed row. The virtualizer reconciles BY INDEX, so this <div> is REUSED
+// when expand/scroll puts a different node in the slot — the ref fires only once.
+// Measurements cache by node id, so we must re-measure both on mount (ref) AND
+// whenever the slot's node id changes (effect), or a reused row keeps the estimate.
+// `measure` is microtask-deferred upstream (no reentrancy, no flash).
+const VirtualRow: Component<{
+  vi: VItem;
+  row: () => FlatRow | undefined;
+  measure: (el: HTMLElement) => void;
+}> = (props) => {
+  let el: HTMLDivElement | undefined;
+  const remeasure = () => {
+    if (el) props.measure(el);
+  };
+  createEffect(() => {
+    props.row()?.node.id; // re-run when this slot renders a different node
+    remeasure();
+  });
+  return (
+    <div
+      data-index={props.vi.index}
+      ref={(n) => {
+        el = n;
+        remeasure();
+      }}
+      style={`position:absolute; top:0; left:0; width:100%; transform:translateY(${props.vi.start}px)`}
+    >
+      <Show when={props.row()}>{(r) => <TreeRow node={r().node} depth={r().depth} />}</Show>
+    </div>
+  );
+};
 
 /**
  * Windowed tree — `<Tree>` for big in-memory data. Same API + tokens; renders only
@@ -49,23 +87,13 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
     if (viewportEl) setScrollEl(viewportEl);
   });
 
-  // Self-tuning estimate: the `estimateSize` prop seeds the guess for un-measured
-  // rows, then a running average of actually-measured heights takes over — so
-  // off-screen / just-rendered rows are estimated at ~the real height (no oversized
-  // gaps from a stale constant). Measured rows always use their own cached height;
-  // this only affects the estimate for rows not yet measured.
+  // Self-tuning estimate: prop seeds the initial guess; a running average of
+  // measured heights then drives the estimate for un-measured rows. Measured rows
+  // always use their own cached size; this only affects rows not yet measured.
   let sizeSum = 0;
   let sizeCount = 0;
   const [estimate, setEstimate] = createSignal(props.estimateSize ?? 28);
-  const recordSize = (h: number) => {
-    if (h > 0) {
-      sizeSum += h;
-      sizeCount += 1;
-      setEstimate(Math.round(sizeSum / sizeCount));
-    }
-  };
 
-  // Created once (never in a memo). Reactive fields via getters.
   const virtualizer = createVirtualizer({
     get count() {
       return rows().length;
@@ -77,6 +105,20 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
       return props.overscan ?? 6;
     },
   });
+
+  // Measure a row + feed the running-average estimate. Deferred to a microtask:
+  // past the synchronous render (avoids measure→notify→re-render reentrancy) but
+  // before paint (no estimate flash).
+  const measure = (el: HTMLElement) =>
+    queueMicrotask(() => {
+      virtualizer.measureElement(el);
+      const h = el.getBoundingClientRect().height;
+      if (h > 0) {
+        sizeSum += h;
+        sizeCount += 1;
+        setEstimate(Math.round(sizeSum / sizeCount));
+      }
+    });
 
   // Lazy-paging seam: report the visible window upward.
   createEffect(() => {
@@ -91,67 +133,30 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
       ref={(el) => (viewportEl = el)}
       class={`solid-tree-container solid-tree-viewport${props.class ? " " + props.class : ""}`}
       data-searching={s.searching() ? "" : undefined}
-      // Bounded-height scroll viewport. overflow-anchor:none keeps dynamic
-      // measurement from fighting the browser's scroll anchoring.
-      style={`display:block; overflow:auto; overflow-anchor:none; height:100%;${props.viewportStyle ?? ""}`}
+      style={{
+        // Bounded-height scroll viewport. overflow-anchor:none keeps dynamic
+        // measurement from fighting the browser's scroll anchoring. Token layer
+        // (containerVars) lives here so the rows inherit the --tree-* vars.
+        display: "block",
+        overflow: "auto",
+        "overflow-anchor": "none",
+        height: "100%",
+        ...s.containerVars(),
+        ...(props.viewportStyle ?? {}),
+      }}
     >
-      <div style={objToStyle(s.containerVars() as Record<string, unknown>)}>
-        <TreeContext.Provider value={s.ctx}>
-          <Show
-            when={!s.noMatches()}
-            fallback={<div class="solid-tree-empty">{props.noMatchesLabel ?? "No matches"}</div>}
-          >
-            <div style={`position:relative; width:100%; height:${virtualizer.getTotalSize()}px`}>
-              <For each={virtualizer.getVirtualItems()}>
-                {(vi) => {
-                  let el: HTMLDivElement | undefined;
-                  const row = () => rows()[vi.index];
-                  // The virtualizer reconciles rows BY INDEX, so a slot's <div> is
-                  // REUSED when expand/scroll puts a different node in it — the ref
-                  // fires only once. Measurements are cached by node id, so a reused
-                  // row's new node would otherwise keep the estimate (only a
-                  // scroll-out/in that recreates the DOM measured it). So measure
-                  // BOTH on mount (ref) AND whenever the slot's node id changes
-                  // (effect). Microtask defer dodges the measure→notify→re-render
-                  // reentrancy crash and lands before paint (no estimate flash).
-                  const remeasure = () => {
-                    const node = el;
-                    if (node)
-                      queueMicrotask(() => {
-                        virtualizer.measureElement(node);
-                        recordSize(node.getBoundingClientRect().height); // feed the estimate
-                      });
-                  };
-                  createEffect(() => {
-                    row()?.node.id; // re-run when this slot renders a different node
-                    remeasure();
-                  });
-                  return (
-                    <div
-                      data-index={vi.index}
-                      ref={(n) => {
-                        el = n;
-                        remeasure();
-                      }}
-                      style={`position:absolute; top:0; left:0; width:100%; transform:translateY(${vi.start}px)`}
-                    >
-                      <Show when={row()}>{(r) => <TreeRow node={r().node} depth={r().depth} />}</Show>
-                    </div>
-                  );
-                }}
-              </For>
-            </div>
-          </Show>
-        </TreeContext.Provider>
-      </div>
+      <TreeContext.Provider value={s.ctx}>
+        <Show
+          when={!s.noMatches()}
+          fallback={<div class="solid-tree-empty">{props.noMatchesLabel ?? "No matches"}</div>}
+        >
+          <div style={`position:relative; width:100%; height:${virtualizer.getTotalSize()}px`}>
+            <For each={virtualizer.getVirtualItems()}>
+              {(vi: VItem) => <VirtualRow vi={vi} row={() => rows()[vi.index]} measure={measure} />}
+            </For>
+          </div>
+        </Show>
+      </TreeContext.Provider>
     </div>
   );
 };
-
-// Serialize the CSS-var object (containerVars) to a style string for the wrapper.
-function objToStyle(o: Record<string, unknown>): string {
-  return Object.entries(o)
-    .filter(([, v]) => v != null)
-    .map(([k, v]) => `${k}:${String(v)}`)
-    .join(";");
-}
