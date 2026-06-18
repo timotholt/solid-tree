@@ -59,10 +59,10 @@ export const DatabaseDemo: Component = () => {
         thousands of nodes, same ~25 in DOM. selected: {sel() ?? "(none)"}
       </p>
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-        <button onClick={() => emit?.({ type: "update", node: { id: "f0", label: `Folder 0 ✏️ edited by gf #${++edits}`, type: "group", payload: { depth: 0 } } })}>
+        <button onClick={() => emit?.({ type: "update", node: { id: "f0", label: `Folder 0 ✏️ edited by Sarah #${++edits}`, type: "group", payload: { depth: 0 } } })}>
           simulate edit (Folder 0)
         </button>
-        <button onClick={() => emit?.({ type: "insert", parentId: null, node: { id: "f-new-" + Date.now(), label: "✨ New folder (from gf)", type: "group", payload: { depth: 0 } } })}>
+        <button onClick={() => emit?.({ type: "insert", parentId: null, node: { id: "f-new-" + Date.now(), label: "✨ New folder (from Sarah)", type: "group", payload: { depth: 0 } } })}>
           simulate insert
         </button>
         <button onClick={() => emit?.({ type: "remove", id: "f1" })}>simulate delete (Folder 1)</button>

@@ -153,7 +153,7 @@ export const OutlineDemo: Component = () => {
       >
         <div style="display:flex;gap:16px">
           <Column email={import.meta.env.VITE_TEST_A_EMAIL as string} password={import.meta.env.VITE_TEST_A_PASS as string} name="Tim" accent="#2563eb" />
-          <Column email={import.meta.env.VITE_TEST_B_EMAIL as string} password={import.meta.env.VITE_TEST_B_PASS as string} name="Gf" accent="#db2777" />
+          <Column email={import.meta.env.VITE_TEST_B_EMAIL as string} password={import.meta.env.VITE_TEST_B_PASS as string} name="Sarah" accent="#db2777" />
         </div>
       </Show>
     </div>

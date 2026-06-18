@@ -1,6 +1,6 @@
 // Two-column collaborative demo (Database2): one shared in-memory "backend" with a
 // pub/sub (stands in for Supabase realtime). Two <DatabaseTree> instances = two
-// clients (Tim + Gf). 40 branches × 50 accounts = 2000 nodes, lazy + windowed.
+// clients (Tim + Sarah). 40 branches × 50 accounts = 2000 nodes, lazy + windowed.
 // Expand a branch, click an account to LOCK it (🔒 yours, 👤 Name for the other,
 // who then can't select it). ±$100 mutates the shared backend → both views update
 // live. Mount via /?database2.
@@ -171,7 +171,7 @@ export const DatabaseDemo2: Component = () => {
       </p>
       <div style="display:flex;gap:16px">
         <Column bank={bank} user="Tim" accent="#2563eb" />
-        <Column bank={bank} user="Gf" accent="#db2777" />
+        <Column bank={bank} user="Sarah" accent="#db2777" />
       </div>
     </div>
   );

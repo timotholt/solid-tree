@@ -162,7 +162,7 @@ export const SupabaseDemo: Component = () => {
           <Column
             email={import.meta.env.VITE_TEST_B_EMAIL as string}
             password={import.meta.env.VITE_TEST_B_PASS as string}
-            name="Gf"
+            name="Sarah"
             accent="#db2777"
           />
         </div>
