@@ -1,10 +1,13 @@
 import { type Component } from "solid-js";
 import { coreOptionsFromProps } from "../Tree.jsx";
 import { DatabaseTree, type DatabaseTreeProps } from "../DatabaseTree.jsx";
+import { type TreeSource } from "../types.js";
 import { createSupabaseTreeController, type SupabaseTreeController, type SupabaseTreeControllerOptions } from "./controller.js";
 
 export interface SupabaseTreeProps extends Omit<DatabaseTreeProps, "source" | "tree"> {
   client?: SupabaseTreeControllerOptions["client"];
+  /** Inject a ready-made source (multi-table / synthetic trees); omit to build from table/toNode. */
+  source?: TreeSource;
   table?: string;
   toNode?: SupabaseTreeControllerOptions["toNode"];
   idColumn?: string;
@@ -32,8 +35,9 @@ export const SupabaseTree: Component<SupabaseTreeProps> = (props) => {
     props.tree ??
     createSupabaseTreeController({
       client: props.client!,
-      table: props.table!,
-      toNode: props.toNode!,
+      source: props.source,
+      table: props.table,
+      toNode: props.toNode,
       idColumn: props.idColumn,
       parentColumn: props.parentColumn,
       select: props.select,

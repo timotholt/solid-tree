@@ -12,8 +12,17 @@ import { createSupabaseLock } from "./lock.js";
 
 export interface SupabaseTreeControllerOptions extends CoreControllerOptions {
   client: SupabaseClient;
-  table: string;
-  toNode: SupabaseSourceConfig["toNode"];
+  /**
+   * Inject a ready-made source — for multi-table / synthetic trees that a single
+   * `supabaseSource(table)` can't express (e.g. roots joined from two tables, or
+   * pre-nested children built at load). When provided, `table`/`toNode` and the other
+   * supabaseSource knobs are ignored; you own getRoots/getChildren/subscribe. The lock
+   * still uses `client` and the realtime stream is tee'd into it for live lock-loss.
+   * Omit to build a source from `table`/`toNode` via {@link supabaseSource}.
+   */
+  source?: TreeSource;
+  table?: string;
+  toNode?: SupabaseSourceConfig["toNode"];
   idColumn?: string;
   parentColumn?: string;
   select?: string;
@@ -71,18 +80,23 @@ export function createSupabaseTreeController(opts: SupabaseTreeControllerOptions
     opts.lockedBy ?? ((n: TreeNodeData) => (n.payload?.lockedBy ?? n.payload?.locked_by ?? null) as string | null);
 
   // Source, with its realtime stream tee'd into the lock for live lock-loss detection.
-  const base = supabaseSource({
-    client: opts.client,
-    table: opts.table,
-    toNode: opts.toNode,
-    idColumn: opts.idColumn,
-    parentColumn: opts.parentColumn,
-    select: opts.select,
-    orderBy: opts.orderBy,
-    schema: opts.schema,
-    realtime: opts.realtime,
-    pageSize: opts.pageSize,
-  });
+  // Injected source wins; otherwise build a single-table one from table/toNode.
+  if (!opts.source && (!opts.table || !opts.toNode))
+    throw new Error("createSupabaseTreeController: provide either `source` or both `table` and `toNode`");
+  const base: TreeSource =
+    opts.source ??
+    supabaseSource({
+      client: opts.client,
+      table: opts.table!,
+      toNode: opts.toNode!,
+      idColumn: opts.idColumn,
+      parentColumn: opts.parentColumn,
+      select: opts.select,
+      orderBy: opts.orderBy,
+      schema: opts.schema,
+      realtime: opts.realtime,
+      pageSize: opts.pageSize,
+    });
   const source: TreeSource = {
     ...base,
     subscribe: base.subscribe
