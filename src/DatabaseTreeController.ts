@@ -25,6 +25,8 @@ export interface DatabaseTreeControllerOptions extends CoreControllerOptions {
 export interface DatabaseTreeController extends TreeController {
   loadChildren(id: string): Promise<void>;
   reloadChildren(id: string): Promise<void>;
+  /** Re-run source.getRoots() (e.g. after a filter/sort change that the source reads live). */
+  refetchRoots(): Promise<void>;
   isLoading(id: string): boolean;
   subscribe(): void;
   unsubscribe(): void;
@@ -169,6 +171,7 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
     ...core,
     loadChildren,
     reloadChildren,
+    refetchRoots: () => rootsQuery.refetch().then(() => undefined),
     isLoading: (id: string) => !!loading[id],
     subscribe,
     unsubscribe,
