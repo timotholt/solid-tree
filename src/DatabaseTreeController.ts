@@ -1,4 +1,4 @@
-import { createEffect, onMount, onCleanup } from "solid-js";
+import { createEffect, createMemo, onMount, onCleanup } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { QueryClient, createQuery } from "@tanstack/solid-query";
 import { type TreeNodeData, type TreeSource, type TreeChange } from "./types.js";
@@ -71,8 +71,13 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
     return node;
   };
 
-  const data = () =>
-    rootsQuery.isLoading ? [loadingChild("__roots")] : (rootsQuery.data ?? []).map(assemble);
+  // Memoized so `.map(assemble)` doesn't rebuild the tree on every read. TanStack
+  // structural-shares rootsQuery.data (stable ref when a refetch returns equal data), so an
+  // idle refetch (e.g. the lock heartbeat) recomputes nothing — no tree churn. Recomputes
+  // only when roots, loading, or a lazily-loaded child list actually change.
+  const data = createMemo(() =>
+    rootsQuery.isLoading ? [loadingChild("__roots")] : (rootsQuery.data ?? []).map(assemble)
+  );
 
   // ── lazy load ────────────────────────────────────────────────────────────────
   const loadChildren = async (id: string) => {
