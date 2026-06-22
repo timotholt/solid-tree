@@ -1,5 +1,5 @@
 import { createEffect, onMount, onCleanup } from "solid-js";
-import { createStore } from "solid-js/store";
+import { createStore, reconcile } from "solid-js/store";
 import { QueryClient, createQuery } from "@tanstack/solid-query";
 import { type TreeNodeData, type TreeSource, type TreeChange } from "./types.js";
 import { findNode } from "./search.js";
@@ -121,8 +121,14 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
     } else if (c.type === "insert") {
       if (c.parentId == null) patchRoots((arr) => [...arr, c.node]);
       else if (childrenStore[c.parentId]) setChildren(c.parentId, (arr) => [...arr, c.node]);
-    } else {
+    } else if (c.type === "remove") {
       patchLists(c.id, (arr) => arr.filter((n) => n.id !== c.id));
+    } else if (c.type === "reload") {
+      // Coarse invalidation: the source can't express the change as a granular patch
+      // (a brand-new root, a reordered/filtered set, an appended immutable child…).
+      // Drop loaded lazy children + refetch roots so the visible tree rebuilds from source.
+      setChildren(reconcile({}));
+      void rootsQuery.refetch();
     }
   };
 

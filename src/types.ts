@@ -76,7 +76,8 @@ export interface TreeProps {
 export type TreeChange =
   | { type: "update"; node: TreeNodeData } // a node's fields changed (label/status/payload/…)
   | { type: "insert"; parentId: string | null; node: TreeNodeData } // null parent = a new root
-  | { type: "remove"; id: string }; // a node (and its subtree) was deleted
+  | { type: "remove"; id: string } // a node (and its subtree) was deleted
+  | { type: "reload" }; // source can't express the change granularly → refetch roots (+ drop lazy children)
 
 export interface TreeSource {
   /** Top-level nodes. */
