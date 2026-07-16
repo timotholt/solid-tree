@@ -15,6 +15,8 @@ const tok = (name: string) => `var(--tree-${name}, var(--tree-${name}-default))`
 
 export interface ChevronProps {
   expanded: boolean;
+  /** Hide the glyph when its owning treeitem already exposes aria-expanded. */
+  ariaHidden?: boolean;
   onClick?: (e: MouseEvent) => void;
   style?: JSX.CSSProperties | string;
 }
@@ -23,6 +25,7 @@ export const Chevron: Component<ChevronProps> = (props) => {
   return (
     <span
       class="solid-tree-chevron"
+      aria-hidden={props.ariaHidden ? "true" : undefined}
       onClick={props.onClick}
       style={{
         ...CHEVRON_DEFAULTS,

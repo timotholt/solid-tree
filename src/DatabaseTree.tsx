@@ -48,6 +48,9 @@ export const DatabaseTree: Component<DatabaseTreeProps> = (props) => {
       tree={tree}
       renderLabel={renderLabel}
       renderActionNode={props.renderActionNode}
+      ariaLabel={props.ariaLabel}
+      ariaLabelledBy={props.ariaLabelledBy}
+      rowClickPolicy={props.rowClickPolicy}
       noMatchesLabel={props.noMatchesLabel}
       basePadding={props.basePadding}
       indentStep={props.indentStep}

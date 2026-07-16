@@ -56,6 +56,9 @@ export const SupabaseTree: Component<SupabaseTreeProps> = (props) => {
       tree={tree}
       renderLabel={props.renderLabel}
       renderActionNode={props.renderActionNode}
+      ariaLabel={props.ariaLabel}
+      ariaLabelledBy={props.ariaLabelledBy}
+      rowClickPolicy={props.rowClickPolicy}
       noMatchesLabel={props.noMatchesLabel}
       basePadding={props.basePadding}
       indentStep={props.indentStep}

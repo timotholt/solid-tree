@@ -40,6 +40,7 @@ export const VirtualDemo: Component = () => {
       <div style="height:420px;border:1px solid #ccc;border-radius:8px;--text-muted:#8a8f98;--border-subtle:rgba(0,0,0,.12);--tree-row-active-bg:rgba(59,130,246,.14)">
         <VirtualTree
           data={data}
+          ariaLabel="Virtualized item browser"
           selectedId={sel()}
           searchQuery={q()}
           storageKey="virtualdemo"

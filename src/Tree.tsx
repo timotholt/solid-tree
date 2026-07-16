@@ -4,6 +4,7 @@ import { type TreeProps, type TreeNodeData } from "./types.js";
 import { createTreeController, type TreeController, type CoreControllerOptions } from "./controller.js";
 import { buildContainerVars } from "./tokens.js";
 import { TreeBranch } from "./TreeBranch.jsx";
+import { createTreeInteraction } from "./interaction.js";
 
 /**
  * View props common to every tier: the controller inputs, but with `data`/`onSelect`
@@ -42,10 +43,20 @@ export function controllerOptionsFromProps(props: CoreViewProps) {
 /** Build the row-render context from controller state + the view's render slots. */
 export function ctxFromController(
   tree: TreeController,
-  slots: { renderLabel?: TreeProps["renderLabel"]; renderActionNode?: TreeProps["renderActionNode"] }
+  slots: {
+    renderLabel?: TreeProps["renderLabel"];
+    renderActionNode?: TreeProps["renderActionNode"];
+    rowClickPolicy?: TreeProps["rowClickPolicy"];
+  },
+  interaction?: Pick<TreeCtx, "tabbableId" | "focusRow" | "onRowKeyDown">
 ): TreeCtx {
   return {
     ...tree._ctxState,
+    rowClickPolicy: slots.rowClickPolicy ?? "finder",
+    accessibleTree: !!interaction,
+    tabbableId: interaction?.tabbableId ?? (() => undefined),
+    focusRow: interaction?.focusRow ?? (() => undefined),
+    onRowKeyDown: interaction?.onRowKeyDown ?? (() => undefined),
     get renderActionNode() {
       return slots.renderActionNode;
     },
@@ -57,11 +68,17 @@ export function ctxFromController(
 
 export const Tree: Component<TreeViewProps> = (props) => {
   const tree = props.tree ?? createTreeController(controllerOptionsFromProps(props));
-  const ctx = ctxFromController(tree, props);
+  let container: HTMLDivElement | undefined;
+  const interaction = createTreeInteraction({ tree, getContainer: () => container });
+  const ctx = ctxFromController(tree, props, interaction);
 
   return (
     <div
+      ref={(element) => (container = element)}
       class="solid-tree-container"
+      role="tree"
+      aria-label={props.ariaLabel}
+      aria-labelledby={props.ariaLabelledBy}
       data-searching={tree.searching() ? "" : undefined}
       style={{ display: "flex", "flex-direction": "column", ...buildContainerVars(props.basePadding, props.indentStep) }}
     >

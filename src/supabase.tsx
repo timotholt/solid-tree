@@ -11,4 +11,4 @@ export { createDatabaseTreeController } from "./DatabaseTreeController.js";
 export type { DatabaseTreeController } from "./DatabaseTreeController.js";
 export { createTreeController } from "./controller.js";
 export type { TreeController } from "./controller.js";
-export type { TreeNodeData, TreeSource, TreeChange } from "./types.js";
+export type { TreeNodeData, TreeRowClickPolicy, TreeSource, TreeChange } from "./types.js";

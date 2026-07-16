@@ -74,7 +74,10 @@ function Sidebar() {
 data: TreeNodeData[];                 // required
 onSelect: (node) => void;             // required; fires on row click
 selectedId?: string | null;          // controlled selection (see rules)
+ariaLabel?: string;                   // accessible name for the role=tree root (all tiers)
+ariaLabelledBy?: string;              // id of an element that labels the tree root (all tiers)
 onToggle?: (id, expanded) => void;    // fires on expand/collapse + once per restored-open node on mount
+rowClickPolicy?: "finder" | "select-only"; // default "finder"; select-only never toggles from row body
 
 storageKey?: string;                  // OMIT = no persistence (in-memory). Set = persist expand state.
 storagePrefix?: string;               // default "tree"; localStorage key = `${prefix}-${storageKey}`
@@ -89,13 +92,16 @@ matcher?: (node, q: string) => boolean;    // default: case-insensitive substrin
 filterMode?: "prune" | "dim";         // default "prune"
 noMatchesLabel?: string;              // default "No matches" (prune mode, empty result)
 ```
-Also exported: `Chevron`, `storage`, type `TreeMatcher`, type `TreeProps`.
+Also exported: `Chevron`, `storage`, type `TreeMatcher`, type `TreeRowClickPolicy`, type `TreeProps`.
 
 ## Behavior rules (the non-obvious parts)
 - **Selection is controlled and NOT persisted.** You own `selectedId` in a signal; Tree calls `onSelect`. On reload, selection is whatever you initialize — only expand state persists.
 - **Persistence is opt-in.** No `storageKey` → in-memory only, zero localStorage writes. Give each tree a distinct `storageKey` so multiple trees don't clobber each other.
 - **Only expand/collapse state is persisted** (`Record<nodeId, boolean>`), nothing else.
 - **Row click semantics** (VS Code/Finder): unexpanded → select + expand; expanded & unselected → select only; expanded & selected → collapse. The chevron always just toggles.
+- **Editor row clicks:** set `rowClickPolicy="select-only"` when selecting a node must not change expansion. Chevron and Left/Right remain the expansion controls. The default is `"finder"`, so existing consumers do not change.
+- **Accessibility is identical across tiers:** Tree/VirtualTree/DatabaseTree/SupabaseTree roots are `role="tree"`; name them with `ariaLabel` or `ariaLabelledBy`. Rows are roving-focus `treeitem`s with `aria-level`, `aria-selected`, and parent-only `aria-expanded`; visual dividers are hidden from the accessibility tree. Up/Down visit visible rows (skip dividers), Right expands/descends, Left collapses/ascends, Home/End jump, Enter/Space select. Tab returns to the last focused mounted row, falling back to selected then first mounted. VirtualTree scrolls an unmounted keyboard target into its window before focusing; DatabaseTree/SupabaseTree inherit this path.
+- **Action-slot keyboard ownership:** key events from focusable descendants in `renderActionNode` are not handled as tree navigation. The row is not a `<button>`, so consumer buttons remain valid nested markup.
 - **Auto-expand to selection:** setting `selectedId` to a nested node expands its ancestors.
 - **Collapse reselects:** collapsing a node whose descendant is selected moves selection to that node (fires `onSelect`), so selection never hides inside a collapsed branch.
 - **`type` is opaque** to the component — it's your routing tag, echoed back in `onSelect`.
@@ -167,6 +173,7 @@ import { VirtualTree } from "@timotholt/solid-tree/virtual";
 - Extra props: `estimateSize?` (px, default 32 — tune to common row), `overscan?`
   (default 6), `class?`/`viewportStyle?` (the scroll viewport), `onRangeChange?(start,end)`
   (the lazy-paging seam for the future `<DatabaseTree>`).
+- Same ARIA, keyboard, accessible-name, action-slot, and `rowClickPolicy` contract as base Tree. Keyboard navigation scrolls unmounted targets into the virtual window before focus.
 - Peer dep `@tanstack/solid-virtual` (optional — only `/virtual` needs it).
 - **Consumer MUST dedupe solid-js** in their bundler, or a prod build can pull a
   second solid-js instance and `ref`/`use()` directives silently no-op (blank list).

@@ -47,7 +47,8 @@
   },
   "scripts": {
     "build": "vite build && tsc --emitDeclarationOnly --outDir dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p tsconfig.test.json && node .test-dist/tests/navigation.test.js"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.0.0",

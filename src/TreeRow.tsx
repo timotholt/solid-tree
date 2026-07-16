@@ -3,6 +3,7 @@ import { Chevron } from "./Chevron.jsx";
 import { tok } from "./tokens.js";
 import { useTree } from "./context.js";
 import { TreeNodeData } from "./types.js";
+import { shouldToggleFromRowClick } from "./navigation.js";
 
 // Built-in highlight for the DEFAULT matcher path — wraps the matched substring
 // of the label in <mark>. Skipped when a custom matcher or renderLabel is used
@@ -34,6 +35,8 @@ export const TreeRow: Component<{ node: TreeNodeData; depth: number }> = (props)
     return (
       <div
         class="solid-tree-divider"
+        role={ctx.accessibleTree ? "presentation" : undefined}
+        aria-hidden={ctx.accessibleTree ? "true" : undefined}
         style={`height: ${tok("divider-height")}; background: ${tok("divider-color")}; margin: ${tok("divider-margin")} 0;`}
       />
     );
@@ -53,12 +56,19 @@ export const TreeRow: Component<{ node: TreeNodeData; depth: number }> = (props)
   return (
     <div
       class="solid-tree-row"
+      role={ctx.accessibleTree ? "treeitem" : undefined}
+      aria-level={ctx.accessibleTree ? props.depth + 1 : undefined}
+      aria-selected={ctx.accessibleTree ? isSelected() : undefined}
+      aria-expanded={ctx.accessibleTree && hasChildren() ? isExpanded() : undefined}
+      tabIndex={ctx.accessibleTree ? (ctx.tabbableId() === props.node.id ? 0 : -1) : undefined}
+      data-tree-id={ctx.accessibleTree ? props.node.id : undefined}
       data-depth={props.depth}
       data-variant={props.node.variant ?? "default"}
       data-selected={isSelected() ? "" : undefined}
       data-has-children={hasChildren() ? "" : undefined}
       data-dimmed={dimmed() ? "" : undefined}
       onClick={(e) => {
+        ctx.focusRow(props.node.id);
         // Tree-row click semantics (match VS Code / Finder):
         //   - unexpanded           → select + expand
         //   - expanded, unselected → select only (don't collapse)
@@ -68,11 +78,12 @@ export const TreeRow: Component<{ node: TreeNodeData; depth: number }> = (props)
         const wasSelected = isSelected();
         const wasExpanded = isExpanded();
         ctx.onSelect(props.node);
-        if (hasChildren()) {
-          if (!wasExpanded) handleToggle(e);
-          else if (wasSelected) handleToggle(e);
-        }
+        if (shouldToggleFromRowClick(ctx.rowClickPolicy, hasChildren(), wasSelected, wasExpanded)) handleToggle(e);
       }}
+      onFocus={(event) => {
+        if (event.target === event.currentTarget) ctx.focusRow(props.node.id);
+      }}
+      onKeyDown={(event) => ctx.onRowKeyDown(event, props.node)}
       style={{
         display: "flex",
         "align-items": tok("row-align-items") as JSX.CSSProperties["align-items"],
@@ -100,6 +111,7 @@ export const TreeRow: Component<{ node: TreeNodeData; depth: number }> = (props)
         <Show when={hasChildren() && !isAction()}>
           <Chevron
             expanded={isExpanded()}
+            ariaHidden={ctx.accessibleTree}
             onClick={(e) => {
               e.stopPropagation();
               handleToggle(e);

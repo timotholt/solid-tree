@@ -27,9 +27,20 @@ export interface TreeNodeData {
  */
 export type TreeMatcher = (node: TreeNodeData, query: string) => boolean;
 
+/**
+ * Controls what clicking the body of a row does when that row has children.
+ * `"finder"` preserves the original select/expand/collapse behavior.
+ * `"select-only"` leaves expansion exclusively to the chevron and keyboard.
+ */
+export type TreeRowClickPolicy = "finder" | "select-only";
+
 export interface TreeProps {
   data: TreeNodeData[];
   selectedId?: string | null;
+  /** Accessible name for the tree root (all component tiers). */
+  ariaLabel?: string;
+  /** Id of an element that labels the tree root (all component tiers). */
+  ariaLabelledBy?: string;
   /**
    * Opt-in persistence. Provide a key unique to this tree to remember its
    * expand/collapse state across reloads (localStorage). Omit it and expand
@@ -42,6 +53,8 @@ export interface TreeProps {
   /** Veto selection of a node (return false to make it unselectable, e.g. locked by another user). */
   canSelect?: (node: TreeNodeData) => boolean;
   onToggle?: (id: string, expanded: boolean) => void;
+  /** Row-body click behavior. Default: `"finder"` (the original behavior). */
+  rowClickPolicy?: TreeRowClickPolicy;
   renderActionNode?: (node: TreeNodeData) => JSX.Element;
   renderLabel?: (node: TreeNodeData) => JSX.Element;
   basePadding?: number;

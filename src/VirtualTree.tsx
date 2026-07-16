@@ -6,6 +6,7 @@ import { createTreeController, type TreeController } from "./controller.js";
 import { controllerOptionsFromProps, ctxFromController, type CoreViewProps } from "./Tree.jsx";
 import { buildContainerVars } from "./tokens.js";
 import { TreeRow } from "./TreeRow.jsx";
+import { createTreeInteraction } from "./interaction.js";
 
 export interface VirtualTreeProps extends CoreViewProps {
   /** Drive this view with an external controller; omit to build one from the props. */
@@ -76,7 +77,6 @@ const VirtualRow: Component<{
  */
 export const VirtualTree: Component<VirtualTreeProps> = (props) => {
   const tree = props.tree ?? createTreeController(controllerOptionsFromProps(props));
-  const ctx = ctxFromController(tree, props);
 
   // The flat visible row list — memoized in the view (controller recomputes on read).
   const rows = createMemo(() => tree.flatRows());
@@ -110,6 +110,18 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
     },
   });
 
+  const interaction = createTreeInteraction({
+    tree,
+    getContainer: () => viewportEl,
+    renderedRows: () =>
+      virtualizer
+        .getVirtualItems()
+        .map((item: VItem) => rows()[item.index])
+        .filter((row: FlatRow | undefined): row is FlatRow => !!row),
+    ensureRowVisible: (index) => virtualizer.scrollToIndex(index, { align: "auto" }),
+  });
+  const ctx = ctxFromController(tree, props, interaction);
+
   // Measure a row + feed the running-average estimate. Deferred to a microtask:
   // past the synchronous render (avoids measure→notify→re-render reentrancy) but
   // before paint (no estimate flash).
@@ -136,6 +148,9 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
     <div
       ref={(el) => (viewportEl = el)}
       class={`solid-tree-container solid-tree-viewport${props.class ? " " + props.class : ""}`}
+      role="tree"
+      aria-label={props.ariaLabel}
+      aria-labelledby={props.ariaLabelledBy}
       data-searching={tree.searching() ? "" : undefined}
       style={{
         // Bounded-height scroll viewport. overflow-anchor:none keeps dynamic

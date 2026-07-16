@@ -84,7 +84,10 @@ Constraints accepted: bounded-height viewport, optional peer dep, measurement/
 estimate tuning, windowed DOM (Ctrl-F + SR see only the window unless setsize/posinset
 provided). Build trigger: a real list (users) crossing a few thousand rows.
 
-## a11y (separate future feature, touches `TreeRow`)
-`role="tree"` on container, `role="treeitem"` + `aria-level/expanded/selected` per
-row, `role="separator"` for dividers, keyboard (arrows/home/end/type-ahead) skipping
-non-`navigable` rows. Do alongside or before `VirtualTree` (shared `TreeRow`/flatten).
+## a11y (delivered across every tier)
+Tree and VirtualTree share `role="tree"`, named-root props, roving `treeitem`
+focus, `aria-level/expanded/selected`, and arrows/Home/End/Enter/Space. Visual
+dividers are presentation-only and omitted from the accessibility tree. Virtual
+navigation resolves against the full visible-row list, scrolls an unmounted
+target index into the rendered window, then focuses it after render.
+DatabaseTree/SupabaseTree inherit the same VirtualTree path.

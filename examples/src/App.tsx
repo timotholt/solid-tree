@@ -124,7 +124,9 @@ const ControlledDemo: Component = () => {
     <>
       <Tree
         data={data} selectedId={sel()} storageKey="tree" storagePrefix="myapp"
+        ariaLabel="Editor document structure"
         basePadding={16} indentStep={28}
+        rowClickPolicy="select-only"
         onSelect={(n) => setSel(n.id)}
         onToggle={(id, open) => setEvt(`${id} → ${open ? "expanded" : "collapsed"}`)}
       />
@@ -308,9 +310,11 @@ export const App: Component = () => (
     </Demo>
 
     <Demo
-      title="6. Indent, prefix & onToggle"
-      blurb="basePadding/indentStep tune depth indentation. storagePrefix namespaces the localStorage key. onToggle(id, expanded) fires on every expand/collapse."
+      title="6. Editor-safe clicks, indent, prefix & onToggle"
+      blurb="rowClickPolicy='select-only' keeps row selection separate from expansion (chevron and keyboard still expand). basePadding/indentStep tune depth indentation; storagePrefix namespaces persistence; onToggle reports expansion."
       code={`<Tree
+  ariaLabel="Editor document structure"
+  rowClickPolicy="select-only" // row body only selects
   basePadding={16} indentStep={28}
   storageKey="tree" storagePrefix="myapp"  // → myapp-tree
   onToggle={(id, open) => log(id, open)}

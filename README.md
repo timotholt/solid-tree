@@ -6,7 +6,8 @@ apps — "build once, use many".
 Features: expand/collapse (optionally persisted to `localStorage`), selection with
 auto-expand-to-selection, left/right icons, counts, dividers, depth indentation,
 per-node action slots, custom label rendering, and search/filter (prune or dim,
-pluggable matcher, built-in highlight).
+pluggable matcher, built-in highlight). Every component tier implements the same
+WAI-ARIA tree semantics, roving focus, and standard keyboard navigation.
 
 `solid-js` is a **peer dependency** — the package ships its raw source under the
 `solid` export condition so your app's `vite-plugin-solid` compiles it, keeping a
@@ -148,7 +149,9 @@ function Sidebar() {
     <Tree
       data={data}
       selectedId={sel()}
+      ariaLabel="Sidebar navigation"
       storageKey="sidebar"
+      rowClickPolicy="select-only" // useful in editors; default is "finder"
       onSelect={(n) => setSel(n.id)}
       renderActionNode={(n) =>
         n.status === "new" ? <span class="badge">new</span> : null
@@ -247,10 +250,13 @@ Options: `data` (required, `Accessor<TreeNodeData[]>`), and optional `selectedId
 | ------------------ | ------------------------------------- | -------- | ------------------------------------------------ |
 | `data`             | `TreeNodeData[]`                      | —        | tree to render                                   |
 | `selectedId?`      | `string \| null`                      | —        | selected node id; ancestors auto-expand          |
+| `ariaLabel?`       | `string`                              | —        | accessible name for the tree root (all tiers)      |
+| `ariaLabelledBy?`  | `string`                              | —        | id of an element that labels the tree root (all tiers) |
 | `storageKey?`      | `string`                              | —        | **opt-in** persistence. Set a per-tree key to remember expand state across reloads; omit for in-memory only (multiple unkeyed trees won't clobber) |
 | `storagePrefix?`   | `string`                              | `"tree"` | `localStorage` key = `${storagePrefix}-${storageKey}` |
 | `onSelect`         | `(node) => void`                      | —        | row selected                                     |
 | `onToggle?`        | `(id, expanded) => void`              | —        | expand/collapse fired (incl. restored on mount)  |
+| `rowClickPolicy?`  | `"finder" \| "select-only"`          | `"finder"` | Finder preserves the original row select/toggle behavior; select-only reserves expansion for the chevron/keyboard |
 | `renderActionNode?`| `(node) => JSX.Element`               | —        | right-side slot per row                           |
 | `renderLabel?`     | `(node) => JSX.Element`               | —        | custom label renderer                            |
 | `basePadding?`     | `number`                              | `12`     | left padding (px) at depth 0                     |
@@ -261,7 +267,41 @@ Options: `data` (required, `Accessor<TreeNodeData[]>`), and optional `selectedId
 | `noMatchesLabel?`  | `string`                              | `"No matches"` | shown (prune) when a query yields nothing   |
 | `tree?`            | `TreeController`                       | —        | drive the view with an external controller (then `data`/`onSelect`/`selectedId`/… are owned by it) — see [Controller API](#controller-api-imperative) |
 
-Also exported: `Chevron` (the ▶/▼ toggle), `storage` (the localStorage helper), `createTreeController`, and the `TreeMatcher`/`TreeController` types.
+Also exported: `Chevron` (the ▶/▼ toggle), `storage` (the localStorage helper), `createTreeController`, and the `TreeMatcher`/`TreeRowClickPolicy`/`TreeController` types.
+
+## Selection, row clicks, and keyboard
+
+`rowClickPolicy="finder"` is the backward-compatible default: clicking a closed
+parent selects and expands it; clicking an open unselected parent selects it
+without collapsing; clicking that selected parent again collapses it. The
+chevron always only toggles expansion.
+
+Use `rowClickPolicy="select-only"` for editors where selecting an object must not
+also change the visible structure. Row clicks then only select; the chevron and
+Left/Right keys own expansion.
+
+`<Tree>`, `<VirtualTree>`, `<DatabaseTree>`, and `<SupabaseTree>` emit
+`role="tree"`, `role="treeitem"`, `aria-level`,
+`aria-selected`, and `aria-expanded` where applicable. Give the tree an
+accessible name with `ariaLabel` or `ariaLabelledBy`. Visual divider rows are
+hidden from the accessibility tree. Focus is roving: Tab returns to the last
+focused visible row, falling back to the selected row and then the first visible
+row, then:
+
+- Up/Down move through visible rows and skip dividers.
+- Right expands a closed parent, then moves to its first child when already open.
+- Left collapses an open parent, then moves to its parent when already closed.
+- Home/End move to the first/last visible row.
+- Enter/Space select the focused row.
+
+The virtualized tiers use the same navigation resolver. When a target row is
+outside the mounted window, they scroll its full visible-row index into view and
+focus it after the virtualizer renders it. DatabaseTree and SupabaseTree inherit
+that behavior through VirtualTree.
+
+Interactive content returned by `renderActionNode` keeps its own click and
+keyboard events; the row is a focusable `div[role=treeitem]`, not a wrapping
+button, so nested action buttons remain valid HTML.
 
 ## Search & filtering
 

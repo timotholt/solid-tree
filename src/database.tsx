@@ -7,4 +7,4 @@ export type {
 } from "./DatabaseTreeController.js";
 export { createTreeController } from "./controller.js";
 export type { TreeController, TreeControllerOptions } from "./controller.js";
-export type { TreeNodeData, TreeProps, TreeMatcher, TreeSource, TreeChange, FlatRow } from "./types.js";
+export type { TreeNodeData, TreeProps, TreeMatcher, TreeRowClickPolicy, TreeSource, TreeChange, FlatRow } from "./types.js";

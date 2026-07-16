@@ -144,7 +144,7 @@ createEffect(() => {
 - [ ] `getItemKey = i => rows()[i].node.id` (persistent id — measurement cache key).
 - [ ] `estimateSize` tuned to the larger common row height.
 - [ ] SSR guard (needs DOM; `getScrollElement` null until mounted — adapter tolerates).
-- [ ] keyboard `scrollToIndex` for arrow-nav (with a11y feature).
+- [x] shared keyboard interaction resolves against full visible rows; unmounted targets use `scrollToIndex`, then receive focus after render.
 - [ ] dividers are measured rows (small height) — no special-casing.
 - [ ] wrap the whole thing in `<TreeContext.Provider value={ctx}>` exactly like `<Tree>`
       (TreeRow reads ctx). The ctx + state logic is shared with Tree → factor the

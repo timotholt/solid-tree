@@ -91,7 +91,16 @@ export interface TreeController {
   setSearch(query: string): void;
 
   /** View-internal: the row-context state (the view adds renderLabel/renderActionNode). */
-  _ctxState: Omit<TreeCtx, "renderLabel" | "renderActionNode">;
+  _ctxState: Omit<
+    TreeCtx,
+    | "renderLabel"
+    | "renderActionNode"
+    | "rowClickPolicy"
+    | "accessibleTree"
+    | "tabbableId"
+    | "focusRow"
+    | "onRowKeyDown"
+  >;
 }
 
 export function createTreeController(opts: TreeControllerOptions): TreeController {
@@ -210,7 +219,16 @@ export function createTreeController(opts: TreeControllerOptions): TreeControlle
 
   const noMatches = () => view().active && !view().keep && view().data.length === 0;
 
-  const _ctxState: Omit<TreeCtx, "renderLabel" | "renderActionNode"> = {
+  const _ctxState: Omit<
+    TreeCtx,
+    | "renderLabel"
+    | "renderActionNode"
+    | "rowClickPolicy"
+    | "accessibleTree"
+    | "tabbableId"
+    | "focusRow"
+    | "onRowKeyDown"
+  > = {
     expanded: effectiveExpanded,
     selectedId,
     highlightQuery,
