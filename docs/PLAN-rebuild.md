@@ -1,6 +1,6 @@
 # Plan — rebuild solid-tree to 1.0
 
-Status: **draft v2 for owner review** (2026-10-20). v1 was adversarially reviewed
+Status: **v2, accepted** (2026-10-20). Execution started. v1 was adversarially reviewed
 (Fable). The review's blockers and majors are folded in, and a change log is at the
 end. Input: [ANALYSIS.md](ANALYSIS.md). Defect IDs (A1…G7) refer to it.
 
@@ -440,7 +440,7 @@ P8 examples land inside each phase
 | Parallel sessions conflict | Contracts and restructure frozen in P3. The ownership table. Local merges. |
 | Credits run out mid-P7 | P7 is last and fine to finish locally |
 
-## 9. Decisions needed from the owner
+## 9. Decisions (accepted 2026-10-20: owner said to proceed with all recommendations)
 
 | ID | Question | Recommendation |
 |---|---|---|
