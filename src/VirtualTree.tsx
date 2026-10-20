@@ -52,7 +52,7 @@ const VirtualRow: Component<{
     if (el) props.measure(el);
   };
   createEffect(() => {
-    props.row()?.node.id; // re-run when this slot renders a different node
+    void props.row()?.node.id; // re-run when this slot renders a different node
     remeasure();
   });
   return (

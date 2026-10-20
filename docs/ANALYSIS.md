@@ -7,6 +7,11 @@ plan's phases say which IDs they close. IDs are never reused.
 Evidence key: **run** = reproduced by executing code against v0.16.0. **read** = high
 confidence from reading the code; the Phase 0 characterization tests confirm or retract it.
 
+**Phase 0 status (2026-10-20):** a `knownDefect(<ID>)` test now reproduces each of
+A1, A2, A3, B1, B2, B3, B4, B5, B6, B7, B8 (three cases), B9, B10, B11, E1, E5, G1, G2,
+G4 and G5. Those tests pass only while the defect exists. G3 is retracted. B4 is
+reproduced as "no error API exists", which is the defect.
+
 ## What is good (keep)
 
 - Pure, shared keyboard resolver (`navigation.ts`).
@@ -96,7 +101,7 @@ confidence from reading the code; the Phase 0 characterization tests confirm or 
 |---|---|---|
 | G1 | read | `coreOptionsFromProps` reads `matcher`, `filterMode`, `storageKey`, `onSelect`, `onToggle` and `canSelect` once, non-reactively (`Tree.tsx:28-34`). `rowClickPolicy` is read once too (`Tree.tsx:55`). Changing these props at runtime does nothing. |
 | G2 | read | Prune mode clones every surviving node (`search.ts:16-19`), so `<Tree>`'s identity-keyed `For` remounts every row on every keystroke. |
-| G3 | read | `getItemKey` reads `rows()` untracked (`VirtualTree.tsx:107`). A row-set change with an equal `count` (for example search replacing rows 1:1) does not notify the virtualizer. |
+| G3 | **retracted** | Claimed: `getItemKey` reads `rows()` untracked (`VirtualTree.tsx:107`), so a same-count row change would not notify the virtualizer. The Phase 0 browser test shows rows replaced 1:1 render correctly. Kept as a characterization test. |
 | G4 | design | The lock is never released on unmount or `pagehide` (`lock.ts:125`, `supabase/controller.ts:77`). It is held until the TTL expires. |
 | G5 | read | The `new QueryClient()` made per controller (`DatabaseTreeController.ts:46`) is never cleared. `expandAll()` on a DB tree fires N child loads at once. |
 | G6 | a11y | `renderActionNode` puts focusable controls inside a `treeitem`, a composite-widget violation that axe does not catch. |

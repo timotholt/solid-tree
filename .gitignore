@@ -6,3 +6,6 @@ playground/node_modules/
 playground/dist/
 .vite/
 .test-dist/
+coverage/
+.vitest/
+.serena/
