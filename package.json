@@ -75,7 +75,8 @@
     "prepare": "npm run build",
     "test:package": "vitest run --project package",
     "lint:package": "publint && attw --pack . --profile esm-only --exclude-entrypoints theme.css",
-    "size": "size-limit"
+    "size": "size-limit",
+    "bench": "vitest run --project bench --silent=false"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.45.0",

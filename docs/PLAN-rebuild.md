@@ -168,6 +168,16 @@ Exit: no `@ts-nocheck` in src. Tarball and Node-import tests green.
 
 ### Phase 2 — Pure core (parallel with Phase 1; new files only)
 
+**Done 2026-10-20.**
+- `src/core/` holds the index, search, flatten, navigation (type-ahead, `*`, RTL,
+  disabled), selection, checks and moves. 49 unit and property tests run 1000 times
+  each.
+- Mutation-checked: three planted bugs were each caught.
+- 50k-deep trees work. Scaling tests are gated.
+- 100k-node timings: index 10 ms, flatten 6 ms, search + flatten 29 ms.
+- Design note: disabled nodes stay focusable by default (WAI-ARIA guidance) but cannot
+  be selected. `skipDisabled` opts into skipping them.
+
 - `tree-index`, `search`, `flatten` and the navigation extensions. Search opens
   ancestors of matches only (A3 design), keeps node identity (G2 design), and reports
   `visible`/`matches` as sets rather than cloned trees.

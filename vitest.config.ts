@@ -37,6 +37,11 @@ export default defineConfig({
       },
       {
         extends: true,
+        // Timing trend only; not part of `npm test` or the gate.
+        test: { name: "bench", environment: "node", include: ["tests/bench/**/*.test.ts"] },
+      },
+      {
+        extends: true,
         test: { name: "dom", environment: "happy-dom", include: ["tests/dom/**/*.test.{ts,tsx}"] },
       },
       {
