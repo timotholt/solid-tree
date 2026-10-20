@@ -1,8 +1,8 @@
 import { Component } from "solid-js";
 import { QueryClient } from "@tanstack/solid-query";
 import { type TreeNodeData, type TreeSource } from "./types.js";
-import { coreOptionsFromProps } from "./Tree.jsx";
-import { VirtualTree, type VirtualTreeProps } from "./VirtualTree.jsx";
+import { coreOptionsFromProps } from "./Tree.js";
+import { VirtualTree, type VirtualTreeProps } from "./VirtualTree.js";
 import {
   createDatabaseTreeController,
   type DatabaseTreeController,

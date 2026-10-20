@@ -1,6 +1,6 @@
 import { type Component } from "solid-js";
-import { coreOptionsFromProps } from "../Tree.jsx";
-import { DatabaseTree, type DatabaseTreeProps } from "../DatabaseTree.jsx";
+import { coreOptionsFromProps } from "../Tree.js";
+import { DatabaseTree, type DatabaseTreeProps } from "../DatabaseTree.js";
 import { type TreeSource } from "../types.js";
 import { createSupabaseTreeController, type SupabaseTreeController, type SupabaseTreeControllerOptions } from "./controller.js";
 

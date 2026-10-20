@@ -47,3 +47,19 @@ jobs:
       - run: npm run test:browser
         env:
           BROWSER: ${{ matrix.browser }}
+
+  lowest-peers:
+    name: lowest supported peers (nightly)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Keep in sync with peerDependencies minimums (verified 2026-10-20).
+      - run: npm i --no-save solid-js@1.9.16 @tanstack/solid-virtual@3.13.32 @tanstack/solid-query@5.30.0 @supabase/supabase-js@2.45.0
+      - run: npx playwright install --with-deps chromium
+      - run: npm test

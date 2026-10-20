@@ -17,6 +17,10 @@
   "exports": {
     ".": {
       "solid": "./src/index.tsx",
+      "node": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/server/index.js"
+      },
       "import": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
@@ -24,6 +28,10 @@
     },
     "./virtual": {
       "solid": "./src/virtual.tsx",
+      "node": {
+        "types": "./dist/virtual.d.ts",
+        "default": "./dist/server/virtual.js"
+      },
       "import": {
         "types": "./dist/virtual.d.ts",
         "default": "./dist/virtual.js"
@@ -31,6 +39,10 @@
     },
     "./database": {
       "solid": "./src/database.tsx",
+      "node": {
+        "types": "./dist/database.d.ts",
+        "default": "./dist/server/database.js"
+      },
       "import": {
         "types": "./dist/database.d.ts",
         "default": "./dist/database.js"
@@ -38,6 +50,10 @@
     },
     "./supabase": {
       "solid": "./src/supabase.tsx",
+      "node": {
+        "types": "./dist/supabase.d.ts",
+        "default": "./dist/server/supabase.js"
+      },
       "import": {
         "types": "./dist/supabase.d.ts",
         "default": "./dist/supabase.js"
@@ -46,22 +62,26 @@
     "./theme.css": "./src/theme.css"
   },
   "scripts": {
-    "build": "vite build && tsc --emitDeclarationOnly --outDir dist",
+    "build": "vite build && vite build -c vite.config.ssr.ts && tsc --emitDeclarationOnly --outDir dist",
     "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run --project unit --project dom --project browser",
     "test:unit": "vitest run --project unit",
     "test:dom": "vitest run --project dom",
     "test:browser": "vitest run --project browser",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage",
-    "gate": "npm run typecheck && npm run lint && npm run coverage && npm run build"
+    "coverage": "vitest run --coverage --project unit --project dom --project browser",
+    "gate": "npm run typecheck && npm run lint && npm run coverage && npm run build && npm run test:package && npm run lint:package && npm run size",
+    "prepare": "npm run build",
+    "test:package": "vitest run --project package",
+    "lint:package": "publint && attw --pack . --profile esm-only --exclude-entrypoints theme.css",
+    "size": "size-limit"
   },
   "peerDependencies": {
-    "@supabase/supabase-js": "^2.0.0",
-    "@tanstack/solid-query": "^5.0.0",
-    "@tanstack/solid-virtual": "^3.0.0",
-    "solid-js": "^1.6.0"
+    "@supabase/supabase-js": "^2.45.0",
+    "@tanstack/solid-query": "^5.30.0",
+    "@tanstack/solid-virtual": "^3.13.32",
+    "solid-js": "^1.9.16"
   },
   "peerDependenciesMeta": {
     "@tanstack/solid-virtual": {
@@ -75,18 +95,22 @@
     }
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@size-limit/preset-small-lib": "^14.2.0",
     "@solidjs/testing-library": "^0.8.10",
-    "@supabase/supabase-js": "^2.45.0",
-    "@tanstack/solid-query": "^5.101.0",
-    "@tanstack/solid-virtual": "^3.13.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/solid-query": "^5.104.5",
+    "@tanstack/solid-virtual": "^3.13.48",
     "@vitest/browser-playwright": "^5.0.5",
     "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.13.0",
     "fast-check": "^4.10.2",
     "happy-dom": "^21.0.4",
     "playwright": "^1.64.1",
+    "publint": "^0.3.25",
+    "size-limit": "^14.2.0",
     "solid-js": "^1.9.17",
-    "typescript": "^5.6.0",
+    "typescript": "~6.0.0",
     "typescript-eslint": "^8.72.0",
     "vite": "^8.3.4",
     "vite-plugin-solid": "^2.11.14",

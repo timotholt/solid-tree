@@ -16,9 +16,5 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": ["error", { patterns: ["solid-js", "solid-js/*", "@tanstack/*", "@supabase/*"] }],
     },
-  },
-  {
-    files: ["src/createVirtualizer.ts"],
-    rules: { "@typescript-eslint/ban-ts-comment": "off" },
   }
 );

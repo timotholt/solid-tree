@@ -33,10 +33,12 @@ solid-js** (+ any tier peers) — see AGENTS.md.
 A **SolidJS** app built with **Vite + `vite-plugin-solid`** (the standard Solid setup).
 The package ships its raw `.tsx` source under the `"solid"` export condition, so *your*
 `vite-plugin-solid` compiles it — that's what keeps a single Solid instance. `solid-js` is
-a **peer dependency** (you already have it in a Solid app). Node 18+ to install.
+a **peer dependency** (you already have it in a Solid app), `solid-js` ≥ 1.9.16.
 
 > Not using Vite/`vite-plugin-solid`? There's a compiled `import` entry + types
-> (`dist/*.js`) for other bundlers/SSR, but the Vite path above is the supported one.
+> (`dist/*.js`) for other bundlers, and a server build under the `node` condition
+> (`dist/server/*.js`) so the package imports in Node and can render to HTML (without
+> hydration). The Vite path above is the supported one.
 
 ### 1. Add the dependency (where + when)
 
@@ -47,13 +49,14 @@ the newest matching tag (don't get stuck on an old version):
 // package.json
 {
   "dependencies": {
-    "@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.13.0"
+    "@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.16.0"
   }
 }
 ```
 
-`#semver:^0.13.0` → highest `0.x` tag ≥ 0.13.0. For a fully reproducible install, pin an
-exact tag instead: `#v0.13.1`. Then run `npm install`.
+`#semver:^0.16.0` → highest `0.16.x` tag (0.x minors may break; see CHANGELOG.md). For a
+fully reproducible install, pin an exact tag instead: `#v0.16.0`. Then run `npm install`.
+Git installs build `dist/` on install via the `prepare` script.
 
 ### 2. Install the peer deps for the tiers you use (what)
 
@@ -62,9 +65,9 @@ only the ones you import (see the [tiers table](#tiers-import-only-what-you-need
 
 ```bash
 # base <Tree> — nothing extra
-npm i @tanstack/solid-virtual     # for /virtual  → <VirtualTree>
-npm i @tanstack/solid-query       # for /database → <DatabaseTree>  (also needs solid-virtual)
-npm i @supabase/supabase-js       # for /supabase → <SupabaseTree>  (also needs the two above)
+npm i @tanstack/solid-virtual     # for /virtual  → <VirtualTree>   (≥ 3.13.32)
+npm i @tanstack/solid-query       # for /database → <DatabaseTree>  (≥ 5.30.0; also needs solid-virtual)
+npm i @supabase/supabase-js       # for /supabase → <SupabaseTree>  (≥ 2.45.0; also needs the two above)
 ```
 
 ### 3. Configure Vite — REQUIRED (how) ⚠️

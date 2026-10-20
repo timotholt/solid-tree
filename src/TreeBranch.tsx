@@ -1,5 +1,5 @@
 import { Component, For, Show } from "solid-js";
-import { TreeRow } from "./TreeRow.jsx";
+import { TreeRow } from "./TreeRow.js";
 import { useTree } from "./context.js";
 import { TreeNodeData } from "./types.js";
 

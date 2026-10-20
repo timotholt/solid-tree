@@ -139,6 +139,15 @@ Exit: gate green locally and in CI with all of the above.
 
 ### Phase 1 — Library peers and packaging (parallel with Phase 2)
 
+**Done 2026-10-20.** Outcomes:
+- The fork is deleted. The C2 baseline fails on 3.13.31 and passes on 3.13.32+.
+- Peers bisected and tested. Query 5.30.0 is the first version that passes.
+  solid-js 1.9.16 is the floor because `dist` is compiled with babel-preset-solid 1.9.16.
+- TS 7 typechecks this code, but typescript-eslint does not support it (no JS API), so
+  TypeScript is pinned to 6.0.
+- A server build under the `node` condition replaces "drop the SSR claim". The tarball
+  test proved the DOM build throws on import in Node. Found G8.
+
 - `@tanstack/solid-virtual` → 3.13.48, peer `^3.13.32`. `@tanstack/solid-query` →
   5.104.x. `@supabase/supabase-js` → 2.118.x. `solid-js` → 1.9.17. Peer ranges =
   tested ranges. A nightly job runs the lowest supported peer set (C5).
@@ -205,7 +214,7 @@ Tests: unit tests per primitive. Phase 0's characterization suite still passes,
 except for tests that intentionally flip. Regression test: "row components survive
 keystrokes" (G2).
 
-Exit: A1–A3, B9–B11, D5, G1, G2 closed. Contracts documented in `docs/SPEC-contracts.md`.
+Exit: A1–A3, B9–B11, D5, G1, G2, G8 closed. Contracts documented in `docs/SPEC-contracts.md`.
 
 ### Phase 4 — Views, headless layer, accessibility (parallel with 5 and 6)
 

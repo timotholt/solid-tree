@@ -25,7 +25,6 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**"],
-      exclude: ["src/createVirtualizer.ts"],
       reporter: ["text-summary", "html"],
       // Ratchet: set just under the measured baseline (2026-10-20: 97.2/87.8/97.2/98.4).
       // Raise as coverage improves; never lower (PLAN §5.2).
@@ -39,6 +38,15 @@ export default defineConfig({
       {
         extends: true,
         test: { name: "dom", environment: "happy-dom", include: ["tests/dom/**/*.test.{ts,tsx}"] },
+      },
+      {
+        extends: true,
+        test: {
+          name: "package",
+          environment: "node",
+          include: ["tests/package/**/*.test.ts"],
+          testTimeout: 120_000,
+        },
       },
       {
         extends: true,

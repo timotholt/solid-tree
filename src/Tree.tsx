@@ -3,7 +3,7 @@ import { TreeContext, type TreeCtx } from "./context.js";
 import { type TreeProps, type TreeNodeData } from "./types.js";
 import { createTreeController, type TreeController, type CoreControllerOptions } from "./controller.js";
 import { buildContainerVars } from "./tokens.js";
-import { TreeBranch } from "./TreeBranch.jsx";
+import { TreeBranch } from "./TreeBranch.js";
 import { createTreeInteraction } from "./interaction.js";
 
 /**

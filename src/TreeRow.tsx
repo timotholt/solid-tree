@@ -1,5 +1,5 @@
 import { Component, Show, JSX } from "solid-js";
-import { Chevron } from "./Chevron.jsx";
+import { Chevron } from "./Chevron.js";
 import { tok } from "./tokens.js";
 import { useTree } from "./context.js";
 import { TreeNodeData } from "./types.js";

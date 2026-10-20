@@ -1,5 +1,5 @@
-export { DatabaseTree } from "./DatabaseTree.jsx";
-export type { DatabaseTreeProps } from "./DatabaseTree.jsx";
+export { DatabaseTree } from "./DatabaseTree.js";
+export type { DatabaseTreeProps } from "./DatabaseTree.js";
 export { createDatabaseTreeController, LOADING_TYPE } from "./DatabaseTreeController.js";
 export type {
   DatabaseTreeController,

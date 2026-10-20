@@ -1,11 +1,11 @@
 import { Component, For, Show, createMemo, createSignal, createEffect, onMount, JSX } from "solid-js";
-import { createVirtualizer } from "./createVirtualizer.js"; // #1203-patched (preserves measurements on expand)
+import { createVirtualizer } from "@tanstack/solid-virtual";
 import { TreeContext } from "./context.js";
 import { type FlatRow } from "./types.js";
 import { createTreeController, type TreeController } from "./controller.js";
-import { controllerOptionsFromProps, ctxFromController, type CoreViewProps } from "./Tree.jsx";
+import { controllerOptionsFromProps, ctxFromController, type CoreViewProps } from "./Tree.js";
 import { buildContainerVars } from "./tokens.js";
-import { TreeRow } from "./TreeRow.jsx";
+import { TreeRow } from "./TreeRow.js";
 import { createTreeInteraction } from "./interaction.js";
 
 export interface VirtualTreeProps extends CoreViewProps {

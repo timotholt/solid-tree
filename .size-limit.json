@@ -1,0 +1,50 @@
+[
+  {
+    "name": "core (.)",
+    "path": "dist/index.js",
+    "import": "*",
+    "ignore": [
+      "solid-js",
+      "@tanstack/solid-virtual",
+      "@tanstack/solid-query",
+      "@supabase/supabase-js"
+    ],
+    "limit": "5 kB"
+  },
+  {
+    "name": "/virtual",
+    "path": "dist/virtual.js",
+    "import": "*",
+    "ignore": [
+      "solid-js",
+      "@tanstack/solid-virtual",
+      "@tanstack/solid-query",
+      "@supabase/supabase-js"
+    ],
+    "limit": "5.5 kB"
+  },
+  {
+    "name": "/database",
+    "path": "dist/database.js",
+    "import": "*",
+    "ignore": [
+      "solid-js",
+      "@tanstack/solid-virtual",
+      "@tanstack/solid-query",
+      "@supabase/supabase-js"
+    ],
+    "limit": "6.5 kB"
+  },
+  {
+    "name": "/supabase",
+    "path": "dist/supabase.js",
+    "import": "*",
+    "ignore": [
+      "solid-js",
+      "@tanstack/solid-virtual",
+      "@tanstack/solid-query",
+      "@supabase/supabase-js"
+    ],
+    "limit": "7.5 kB"
+  }
+]

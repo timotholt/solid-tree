@@ -1,5 +1,5 @@
-export { VirtualTree } from "./VirtualTree.jsx";
-export type { VirtualTreeProps } from "./VirtualTree.jsx";
+export { VirtualTree } from "./VirtualTree.js";
+export type { VirtualTreeProps } from "./VirtualTree.js";
 export { createTreeController } from "./controller.js";
 export type { TreeController, TreeControllerOptions } from "./controller.js";
 // Re-export the shared surface so `/virtual` consumers don't need both entry points.

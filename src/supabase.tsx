@@ -1,5 +1,5 @@
-export { SupabaseTree } from "./supabase/SupabaseTree.jsx";
-export type { SupabaseTreeProps } from "./supabase/SupabaseTree.jsx";
+export { SupabaseTree } from "./supabase/SupabaseTree.js";
+export type { SupabaseTreeProps } from "./supabase/SupabaseTree.js";
 export { createSupabaseTreeController } from "./supabase/controller.js";
 export type { SupabaseTreeController, SupabaseTreeControllerOptions } from "./supabase/controller.js";
 export { supabaseSource } from "./supabase/source.js";

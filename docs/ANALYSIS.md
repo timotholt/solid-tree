@@ -105,4 +105,5 @@ reproduced as "no error API exists", which is the defect.
 | G4 | design | The lock is never released on unmount or `pagehide` (`lock.ts:125`, `supabase/controller.ts:77`). It is held until the TTL expires. |
 | G5 | read | The `new QueryClient()` made per controller (`DatabaseTreeController.ts:46`) is never cleared. `expandAll()` on a DB tree fires N child loads at once. |
 | G6 | a11y | `renderActionNode` puts focusable controls inside a `treeitem`, a composite-widget violation that axe does not catch. |
+| G8 | run | Revealing the selection's ancestors (and the persisted-expansion replay) runs in effects, which do not run during SSR. A server render shows the selection collapsed while the client shows it revealed. Found by the Phase 1 package test. Fix in Phase 3: derive the initial expansion synchronously. |
 | G7 | design | The shipped lock SQL hard-codes `scratch_lock_demo` (`supabase/migrations/0001_scratch_lock.sql`). The `/supabase` tier is unusable without consumers rewriting the SQL. |

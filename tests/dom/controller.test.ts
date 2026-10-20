@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, createSignal } from "solid-js";
 import { createTreeController, type TreeControllerOptions } from "../../src/controller.js";
-import { coreOptionsFromProps } from "../../src/Tree.jsx";
+import { coreOptionsFromProps } from "../../src/Tree.js";
 import { knownDefect } from "../support/known-defect.js";
 import { expectConsole } from "../support/console.js";
 import { inRoot } from "../support/root.js";

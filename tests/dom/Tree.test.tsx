@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, fireEvent } from "@solidjs/testing-library";
 import { createSignal, onCleanup } from "solid-js";
-import { Tree } from "../../src/Tree.jsx";
+import { Tree } from "../../src/Tree.js";
 import { createTreeController } from "../../src/controller.js";
 import type { TreeNodeData, TreeRowClickPolicy } from "../../src/types.js";
 import { knownDefect } from "../support/known-defect.js";

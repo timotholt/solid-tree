@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render } from "@solidjs/testing-library";
 import { userEvent } from "vitest/browser";
 import { createSignal } from "solid-js";
-import { VirtualTree } from "../../src/VirtualTree.jsx";
+import { VirtualTree } from "../../src/VirtualTree.js";
 import { createTreeController, type TreeController } from "../../src/controller.js";
 import type { TreeNodeData } from "../../src/types.js";
 import { knownDefect } from "../support/known-defect.js";

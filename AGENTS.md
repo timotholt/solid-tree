@@ -10,7 +10,7 @@ vite-plugin-solid compiles it (single Solid instance).
 
 **1. Dependency** (git, pinned to a semver range so `npm update` advances it):
 ```jsonc
-"@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.13.0"
+"@timotholt/solid-tree": "github:timotholt/solid-tree#semver:^0.16.0"
 ```
 Then `npm install`.
 
