@@ -137,10 +137,10 @@ function Pane(props: { sb: Accessor<PGliteSupabase>; user: string; admin?: boole
 
   return (
     <section class="panel" aria-label={`${name}'s screen`} data-user={props.user}>
-      <h3 style={{ margin: "0 0 8px", "font-size": "15px" }}>
+      <h2 style={{ margin: "0 0 8px", "font-size": "15px" }}>
         {name}
         {props.admin ? " (admin)" : ""}
-      </h3>
+      </h2>
       <SupabaseTree tree={tree} ariaLabel={`${name}'s documents`} viewportStyle={{ height: "190px" }} renderLabel={(n) => <span>{n.label}{ownerOf(n)}</span>} />
       <p role="status" data-testid={`status-${props.user}`} style={{ "min-height": "2.6em" }}>
         {status()}

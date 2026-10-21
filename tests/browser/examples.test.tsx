@@ -75,18 +75,24 @@ describe("gallery examples", () => {
     it(`${name}: renders, is accessible, and passes its check`, async () => {
       // Examples may log on purpose (console.info is allowed by the guard).
       const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+      // Mirror the gallery: the example sits under the page's <h1>, so axe checks
+      // heading order the way visitors' browsers see it.
+      const page = document.createElement("main");
+      const h1 = document.createElement("h1");
+      h1.textContent = mod.meta.title;
       const host = document.createElement("div");
-      document.body.appendChild(host);
+      page.append(h1, host);
+      document.body.appendChild(page);
       const h = helpers(host);
       mod.before?.(h);
       render(() => <mod.default />, { container: host });
       await h.settle(20);
       if (mod.check) await mod.check(host, h);
       await h.settle();
-      const result = await axe.run(host, { resultTypes: ["violations"] });
+      const result = await axe.run(page, { resultTypes: ["violations"] });
       expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 120)}`)).toEqual([]);
       infoSpy.mockRestore();
-      host.remove();
+      page.remove();
     }, 90_000);
   }
 });

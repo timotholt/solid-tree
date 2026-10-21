@@ -41,7 +41,7 @@ const tree = createSupabaseTreeController({
 function HowTo() {
   return (
     <section class="panel" data-testid="howto" aria-labelledby="sb-howto">
-      <h2 id="sb-howto" style={{ "margin-top": 0, "font-size": "18px" }}>How to run this example</h2>
+      <h3 id="sb-howto" style={{ "margin-top": 0, "font-size": "16px" }}>How to run this example</h3>
       <ol>
         <li>
           Create <code>examples/.env.local</code> with <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>{" "}

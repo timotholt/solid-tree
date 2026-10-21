@@ -103,7 +103,9 @@ export async function runChecks(entries: Entry[], onResult: (r: CheckResult) => 
       await h.settle(20);
       await e.check(host, h);
       await h.settle();
-      const result = await axe.run(host, { resultTypes: ["violations"] });
+      // heading-order depends on where the off-screen arena sits in the gallery page, not
+      // on the example; CI checks it properly (examples.test.tsx renders under an <h1>).
+      const result = await axe.run(host, { resultTypes: ["violations"], rules: { "heading-order": { enabled: false } } });
       if (result.violations.length) throw new Error(`axe: ${result.violations.map((v) => v.id).join(", ")}`);
       onResult({ slug: e.slug, title: e.meta.title, ok: true, ms: performance.now() - t0 });
     } catch (err) {
