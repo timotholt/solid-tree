@@ -24,8 +24,19 @@ export default defineConfig({
     ],
   },
   optimizeDeps: {
-    include: ["@tanstack/solid-virtual", "@tanstack/solid-query", "@solidjs/testing-library"],
-    exclude: ["solid-js"],
+    // Never scan entries (rolldown's scanner cannot parse Solid JSX in .tsx tests) and
+    // never discover deps mid-run (a re-optimization reloads browser test iframes and
+    // makes cold CI runs flaky). Everything CommonJS the browser tests load is listed.
+    noDiscovery: true,
+    entries: [],
+    include: [
+      "@tanstack/solid-virtual",
+      "@tanstack/solid-query",
+      "@solidjs/testing-library",
+      "axe-core",
+      "@supabase/supabase-js",
+    ],
+    exclude: ["solid-js", "@electric-sql/pglite"],
   },
   test: {
     maxWorkers,

@@ -92,8 +92,8 @@
     "test:dom": "vitest run --project dom",
     "test:browser": "vitest run --project browser",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage --project unit --project dom --project browser",
-    "gate": "npm run typecheck && npm --prefix examples run typecheck && npm run lint && npm run coverage && npm run test:sql && npm run build && npm run test:package && npm run lint:package && npm run size",
+    "coverage": "vitest run --coverage --project unit --project dom --project browser --project sql",
+    "gate": "npm run typecheck && npm --prefix examples run typecheck && npm run lint && npm run coverage && npm run build && npm run test:package && npm run lint:package && npm run size",
     "prepare": "npm run build",
     "test:package": "vitest run --project package",
     "lint:package": "publint && attw --pack . --profile esm-only --exclude-entrypoints theme.css",
@@ -107,7 +107,8 @@
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/solid-query": "^5.30.0",
     "@tanstack/solid-virtual": "^3.13.32",
-    "solid-js": "^1.9.16"
+    "solid-js": "^1.9.16",
+    "@electric-sql/pglite": ">=0.5.0"
   },
   "peerDependenciesMeta": {
     "@tanstack/solid-virtual": {
@@ -117,6 +118,9 @@
       "optional": true
     },
     "@supabase/supabase-js": {
+      "optional": true
+    },
+    "@electric-sql/pglite": {
       "optional": true
     }
   },

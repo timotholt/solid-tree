@@ -4,10 +4,11 @@
     "path": "dist/index.js",
     "import": "*",
     "ignore": [
-      "solid-js",
-      "@tanstack/solid-virtual",
+      "@electric-sql/pglite",
+      "@supabase/supabase-js",
       "@tanstack/solid-query",
-      "@supabase/supabase-js"
+      "@tanstack/solid-virtual",
+      "solid-js"
     ],
     "limit": "12.5 kB"
   },
@@ -16,10 +17,11 @@
     "path": "dist/virtual.js",
     "import": "*",
     "ignore": [
-      "solid-js",
-      "@tanstack/solid-virtual",
+      "@electric-sql/pglite",
+      "@supabase/supabase-js",
       "@tanstack/solid-query",
-      "@supabase/supabase-js"
+      "@tanstack/solid-virtual",
+      "solid-js"
     ],
     "limit": "13 kB"
   },
@@ -28,10 +30,11 @@
     "path": "dist/database.js",
     "import": "*",
     "ignore": [
-      "solid-js",
-      "@tanstack/solid-virtual",
+      "@electric-sql/pglite",
+      "@supabase/supabase-js",
       "@tanstack/solid-query",
-      "@supabase/supabase-js"
+      "@tanstack/solid-virtual",
+      "solid-js"
     ],
     "limit": "14.5 kB"
   },
@@ -40,10 +43,11 @@
     "path": "dist/supabase.js",
     "import": "*",
     "ignore": [
-      "solid-js",
-      "@tanstack/solid-virtual",
+      "@electric-sql/pglite",
+      "@supabase/supabase-js",
       "@tanstack/solid-query",
-      "@supabase/supabase-js"
+      "@tanstack/solid-virtual",
+      "solid-js"
     ],
     "limit": "16.5 kB"
   },
@@ -52,10 +56,11 @@
     "path": "dist/headless.js",
     "import": "*",
     "ignore": [
-      "solid-js",
-      "@tanstack/solid-virtual",
+      "@electric-sql/pglite",
+      "@supabase/supabase-js",
       "@tanstack/solid-query",
-      "@supabase/supabase-js"
+      "@tanstack/solid-virtual",
+      "solid-js"
     ],
     "limit": "9 kB"
   }

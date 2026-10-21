@@ -30,6 +30,7 @@ export default defineConfig({
         "@tanstack/solid-virtual",
         "@tanstack/solid-query",
         "@supabase/supabase-js",
+        "@electric-sql/pglite",
       ],
       output: { entryFileNames: "[name].js" },
     },
