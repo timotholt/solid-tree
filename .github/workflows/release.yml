@@ -1,8 +1,9 @@
 name: Release
 
-# Publishes to npm when a version tag (v*) is pushed, via npm Trusted Publishing:
-# no token is stored; npm verifies this workflow through GitHub's OIDC identity and
-# attaches a signed provenance statement.
+# On a version tag (v*): run the gate, publish to npm via npm Trusted Publishing (no
+# token is stored; npm verifies this workflow through GitHub's OIDC identity and
+# attaches a signed provenance statement), then create the GitHub Release with the
+# matching CHANGELOG section as its notes.
 #
 # One-time setup on npmjs.com: package → Settings → Trusted Publisher → GitHub Actions,
 # repository timotholt/solid-tree, workflow release.yml.
@@ -12,8 +13,8 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: read
-  id-token: write
+  contents: write # create the GitHub Release
+  id-token: write # npm Trusted Publishing
 
 jobs:
   publish:
@@ -39,3 +40,21 @@ jobs:
           else
             npm publish --provenance --access public
           fi
+      - name: GitHub Release (skipped if it already exists)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; nothing to do."
+            exit 0
+          fi
+          VERSION="${GITHUB_REF_NAME#v}"
+          # The CHANGELOG section for this version, up to the next "## " heading.
+          awk -v v="$VERSION" '
+            index($0, "## " v " ") == 1 { on = 1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "CHANGELOG.md has no section for $VERSION"; exit 1; }
+          printf '\n---\n**Install:** `npm i @timotholt/solid-tree@%s` · **Demo & docs:** https://timotholt.github.io/solid-tree/\n' "$VERSION" >> notes.md
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md --latest
