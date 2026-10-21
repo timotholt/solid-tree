@@ -298,6 +298,19 @@ Exit: B2, B4–B7, D6, G5 closed.
 
 ### Phase 6 — Supabase tier (parallel with 4 and 5; integration job local)
 
+**Done 2026-10-20, except the Docker integration job.**
+- Closed B3, B6 (source half), B8, D10, D11, D12, G4 and G7.
+- The SQL installer is tested on real Postgres via PGlite (WASM, in the gate). That test
+  caught a bug: RLS with only an UPDATE policy hides every row. The holder policy is now
+  restrictive, plus a grants passthrough when RLS was off.
+- Not done: the nightly local-Supabase (Docker) job covering realtime, PostgREST and the
+  live `lock-audit.ts`. It was not built because it could not be run here (memory) and
+  unverified CI config was not shipped. Tracked as open work.
+- Kept the client-side "release previous" call in `acquire`. The reference SQL makes it
+  a no-op, but it protects custom RPCs that do not release atomically.
+- `<SupabaseTree>` props are derived from `SUPABASE_OPTION_KEYS` (type-tested). This
+  touched a Phase 4 view file because Phase 4 had not started.
+
 Owns `supabase/*` except views, and the `supabase/` SQL folder.
 
 - Per-instance channel names (B3). The source emits `parentId` on update, which

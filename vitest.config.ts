@@ -46,6 +46,11 @@ export default defineConfig({
       },
       {
         extends: true,
+        // Real SQL (supabase/migrations) in PGlite — Postgres in WASM, no Docker.
+        test: { name: "sql", environment: "node", include: ["tests/sql/**/*.test.ts"], testTimeout: 60_000 },
+      },
+      {
+        extends: true,
         test: {
           name: "package",
           environment: "node",

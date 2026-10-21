@@ -26,9 +26,14 @@ export interface SupabaseSourceConfig {
   schema?: string;
   /** Subscribe to realtime row changes. Default true. */
   realtime?: boolean;
-  /** Page size for the .range() pagination that works around PostgREST's row cap. Default 1000. */
+  /** Page size for the keyset pagination that works around PostgREST's row cap. Default 1000. */
   pageSize?: number;
 }
+
+let channels = 0;
+
+/** Quote a value for a PostgREST `or=(…)` filter (commas/parens/quotes are syntax there). */
+const pgrstValue = (v: unknown) => `"${String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
 /**
  * Build a `TreeSource` backed by a Supabase table: `select`→getRoots/getChildren and
@@ -43,21 +48,33 @@ export function supabaseSource(cfg: SupabaseSourceConfig): TreeSource {
   const order = cfg.orderBy ?? { column: idCol, ascending: true };
   const parentCol = cfg.parentColumn;
 
-  // PostgREST caps a single response at `db-max-rows` (1000 on Supabase by default),
-  // so a plain select silently truncates large tables. Page through with .range()
-  // until a short page comes back. (Big FLAT lists should really paginate lazily;
-  // this at least never drops rows. Use a parentColumn hierarchy for huge trees.)
+  // PostgREST caps a single response at `db-max-rows` (1000 on Supabase by default), so a
+  // plain select silently truncates large tables. Page with KEYSET pagination on
+  // (orderColumn, id) — unlike offset ranges it never skips or repeats rows when other
+  // users insert or delete during the load (ANALYSIS D12).
   const PAGE = cfg.pageSize ?? 1000;
+  const asc = order.ascending ?? true;
   const fetchWhere = async (apply: (q: any) => any): Promise<TreeNodeData[]> => {
     const rows: Record<string, any>[] = [];
-    for (let from = 0; ; from += PAGE) {
-      const q = apply(cfg.client.from(cfg.table).select(sel))
-        .order(order.column, { ascending: order.ascending ?? true })
-        .range(from, from + PAGE - 1);
-      const { data, error } = await q;
+    let last: Record<string, any> | undefined;
+    for (;;) {
+      let q = apply(cfg.client.from(cfg.table).select(sel)).order(order.column, { ascending: asc });
+      if (order.column !== idCol) q = q.order(idCol, { ascending: asc });
+      if (last) {
+        const op = asc ? "gt" : "lt";
+        q =
+          order.column === idCol
+            ? q[op](idCol, last[idCol])
+            : q.or(
+                `${order.column}.${op}.${pgrstValue(last[order.column])},` +
+                  `and(${order.column}.eq.${pgrstValue(last[order.column])},${idCol}.${op}.${pgrstValue(last[idCol])})`
+              );
+      }
+      const { data, error } = await q.limit(PAGE);
       if (error) throw error;
       rows.push(...(data ?? []));
       if (!data || data.length < PAGE) break;
+      last = data[data.length - 1];
     }
     return rows.map(cfg.toNode);
   };
@@ -73,7 +90,9 @@ export function supabaseSource(cfg: SupabaseSourceConfig): TreeSource {
   if (cfg.realtime !== false) {
     source.subscribe = (onChange) => {
       const channel = cfg.client
-        .channel(`solid-tree:${cfg.schema ?? "public"}:${cfg.table}`)
+        // One channel per subscription: realtime-js dedupes channels by topic, so a shared
+        // topic made a second tree reuse (and unmount-kill) the first's channel (B3).
+        .channel(`solid-tree:${cfg.schema ?? "public"}:${cfg.table}:${++channels}`)
         .on(
           "postgres_changes",
           { event: "*", schema: cfg.schema ?? "public", table: cfg.table },
@@ -101,7 +120,9 @@ function toChange(
   const { eventType, new: rowNew, old: rowOld } = payload;
   if (eventType === "INSERT" && rowNew)
     return { type: "insert", parentId: parentCol ? rowNew[parentCol] ?? null : null, node: toNode(rowNew) };
-  if (eventType === "UPDATE" && rowNew) return { type: "update", node: toNode(rowNew) };
+  if (eventType === "UPDATE" && rowNew)
+    // parentId lets the tree detect moves without Supabase's `old` row (B6).
+    return parentCol ? { type: "update", node: toNode(rowNew), parentId: rowNew[parentCol] ?? null } : { type: "update", node: toNode(rowNew) };
   if (eventType === "DELETE") {
     const id = rowOld?.[idCol];
     return id != null ? { type: "remove", id: String(id) } : null;

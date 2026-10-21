@@ -1,27 +1,14 @@
 import { type Component, mergeProps } from "solid-js";
 import { coreOptionsFromProps, warnIfTreeOverridesProps } from "../view/Tree.js";
 import { DatabaseTree, type DatabaseTreeProps } from "../database/DatabaseTree.js";
-import { type TreeSource } from "../types.js";
-import { createSupabaseTreeController, type SupabaseTreeController, type SupabaseTreeControllerOptions } from "./controller.js";
+import { createSupabaseTreeController, SUPABASE_OPTION_KEYS, type SupabaseTreeController, type SupabaseTreeControllerOptions } from "./controller.js";
+import { forward } from "../state/access.js";
 
-export interface SupabaseTreeProps extends Omit<DatabaseTreeProps, "source" | "tree"> {
-  client?: SupabaseTreeControllerOptions["client"];
-  /** Inject a ready-made source (multi-table / synthetic trees); omit to build from table/toNode. */
-  source?: TreeSource;
-  table?: string;
-  toNode?: SupabaseTreeControllerOptions["toNode"];
-  idColumn?: string;
-  parentColumn?: string;
-  select?: string;
-  orderBy?: SupabaseTreeControllerOptions["orderBy"];
-  schema?: string;
-  realtime?: boolean;
-  pageSize?: number;
-  heartbeatMs?: number;
-  onLockLost?: (id: string) => void;
-  /** Drive this view with an external controller; omit to build one from the props. */
-  tree?: SupabaseTreeController;
-}
+export type SupabaseTreeProps = Omit<DatabaseTreeProps, "source" | "tree" | "queryClient"> &
+  Partial<Pick<SupabaseTreeControllerOptions, (typeof SUPABASE_OPTION_KEYS)[number]>> & {
+    /** Drive this view with an external controller; omit to build one from the props. */
+    tree?: SupabaseTreeController;
+  };
 
 /**
  * `<DatabaseTree>` wired to a Supabase table + record lock: async roots/children, lazy
@@ -35,50 +22,8 @@ export const SupabaseTree: Component<SupabaseTreeProps> = (props) => {
   const tree =
     props.tree ??
     createSupabaseTreeController(
-      mergeProps(coreOptionsFromProps(props), {
-        get client() {
-          return props.client!;
-        },
-        get source() {
-          return props.source;
-        },
-        get table() {
-          return props.table;
-        },
-        get toNode() {
-          return props.toNode;
-        },
-        get idColumn() {
-          return props.idColumn;
-        },
-        get parentColumn() {
-          return props.parentColumn;
-        },
-        get select() {
-          return props.select;
-        },
-        get orderBy() {
-          return props.orderBy;
-        },
-        get schema() {
-          return props.schema;
-        },
-        get realtime() {
-          return props.realtime;
-        },
-        get pageSize() {
-          return props.pageSize;
-        },
-        get queryClient() {
-          return props.queryClient;
-        },
-        get heartbeatMs() {
-          return props.heartbeatMs;
-        },
-        get onLockLost() {
-          return props.onLockLost;
-        },
-      })
+      // Every Supabase option forwarded live from one key list (D3, G1).
+      mergeProps(coreOptionsFromProps(props), forward(props, SUPABASE_OPTION_KEYS)) as SupabaseTreeControllerOptions
     );
 
   return (

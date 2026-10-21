@@ -79,3 +79,20 @@ describe("createSupabaseTreeController", () => {
     t.dispose();
   });
 });
+
+import { expectTypeOf } from "vitest";
+import { SUPABASE_OPTION_KEYS, type SupabaseTreeControllerOptions } from "../../src/supabase/controller.js";
+import type { CoreControllerOptions } from "../../src/controller/index.js";
+import type { SupabaseTreeProps } from "../../src/supabase/SupabaseTree.js";
+
+describe("<SupabaseTree> option surface (D3)", () => {
+  it("SUPABASE_OPTION_KEYS covers exactly the non-core controller options", () => {
+    type Own = Exclude<keyof SupabaseTreeControllerOptions, keyof CoreControllerOptions>;
+    expectTypeOf<(typeof SUPABASE_OPTION_KEYS)[number]>().toEqualTypeOf<Own>();
+  });
+  it("props expose the previously missing lock options", () => {
+    expectTypeOf<SupabaseTreeProps>().toHaveProperty("lockRpc");
+    expectTypeOf<SupabaseTreeProps>().toHaveProperty("lockedBy");
+    expectTypeOf<SupabaseTreeProps>().toHaveProperty("heartbeatPolicy");
+  });
+});

@@ -7,6 +7,9 @@ plan's phases say which IDs they close. IDs are never reused.
 Evidence key: **run** = reproduced by executing code against v0.16.0. **read** = high
 confidence from reading the code; the Phase 0 characterization tests confirm or retract it.
 
+**Phase 6 status (2026-10-20):** also closed: B3, B6 (source), B8, D10, D11, D12, G4, G7.
+Still open: B1, E1, E5, G2 (Phase 4 views); G6 (Phase 4).
+
 **Phase 5 status (2026-10-20):** also closed: B2, B4, B5, B6 (database controller; the
 Supabase source half remains for Phase 6), B7 (subtree cache), D6, G5. Still open: B1, B3,
 B6 (source), B8, E1, E5, G2, G4, G7.

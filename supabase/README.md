@@ -1,3 +1,40 @@
+# Supabase — record locking for your own tables
+
+## Use locking in your app (production)
+
+Run [`migrations/0003_solid_tree_lock.sql`](migrations/0003_solid_tree_lock.sql) once (SQL
+editor, or your migration tool), then install locking on each table that needs it:
+
+```sql
+select solid_tree.install_lock('public.documents');
+-- options: a name prefix (for several locked tables), lock TTL, id column, the admin JWT
+-- claim, and an opt-in holder-only UPDATE policy
+select solid_tree.install_lock('public.tasks',
+  prefix => 'tasks_', ttl => '5 minutes', id_column => 'id',
+  admin_claim => 'app_admin', protect_updates => true);
+```
+
+That adds `locked_by` / `locked_at` columns and the RPCs (`acquire_lock`, `touch_lock`,
+`release_lock`, `release_all_locks`, `admin_force_release`, each prefixed), executable by
+`authenticated` only. `protect_updates` adds a *restrictive* row-level-security policy (only
+the holder may UPDATE). It never widens access: if the table had no RLS, it also adds a
+passthrough policy so reads and other writes behave exactly as your grants already allow.
+
+Point the client at prefixed RPCs with `lockRpc`:
+
+```tsx
+<SupabaseTree client={supabase} table="tasks" toNode={toNode}
+  lockRpc={{ acquireFn: "tasks_acquire_lock", touchFn: "tasks_touch_lock",
+             releaseFn: "tasks_release_lock", releaseAllFn: "tasks_release_all_locks" }} />
+```
+
+The installer's behavior is tested against real Postgres (PGlite) in
+`tests/sql/lock-installer.test.ts`: acquire/refuse, one lock per user, heartbeat, TTL
+expiry, holder-only release, admin override, grants, prefixes, non-uuid ids, RLS
+narrowing, idempotency.
+
+---
+
 # Supabase scratch — prove the lock subsystem on real Postgres
 
 Verifies [`docs/SPEC-locking.md`](../docs/SPEC-locking.md) against a live Supabase

@@ -6,6 +6,30 @@ breaking changes; they are always marked **Breaking**. Defect IDs refer to
 
 ## Unreleased
 
+### Changed (phase 6: Supabase tier)
+- **Breaking:** the lock heartbeat now beats by default even while the window is
+  unfocused (`heartbeatPolicy: "always"`). `"focused"` restores the old behavior, where
+  an idle background tab let its lock expire (D11).
+- **Breaking:** the held lock is released on unmount and on `pagehide` (a keepalive
+  request), so closing a tab no longer holds the record until the TTL expires
+  (`releaseOnDispose: false` opts out) (G4).
+- The lock follows `onAuthStateChange`: signing in as someone else drops the previous
+  user's lock. `acquire`/`release` calls are serialized, and heartbeats never overlap (B8).
+  Lock state has a single source of truth (D10).
+- Each realtime subscription gets its own channel, so two trees on one table no longer
+  share and kill each other's channel (B3). UPDATE events carry the parent id, so moves
+  are detected (B6).
+- Rows load with keyset pagination on (order column, id), which never skips or repeats
+  rows while others write (D12).
+- `<SupabaseTree>` accepts every Supabase option, including the previously missing
+  `lockRpc`, `lockedBy`, `heartbeatPolicy` and `releaseOnDispose` (D3).
+
+### Added (phase 6)
+- `supabase/migrations/0003_solid_tree_lock.sql`: `solid_tree.install_lock(table, …)`
+  installs record locking on any table. Options: name prefix, TTL, id column (any type),
+  admin claim, and an opt-in restrictive holder-only UPDATE policy (G7). Tested against
+  real Postgres (PGlite) with no Docker needed.
+
 ### Changed (phase 5: database tier)
 - **Breaking:** loading/error placeholders are synthesized rows (`kind: "placeholder"`,
   id `<parent>::placeholder`), not fake data nodes. They are not selectable and not in

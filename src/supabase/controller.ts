@@ -8,7 +8,7 @@ import {
 } from "../database/createDatabaseTreeController.js";
 import { pickCore, type CoreControllerOptions } from "../controller/index.js";
 import { supabaseSource, type SupabaseSourceConfig } from "./source.js";
-import { createSupabaseLock } from "./lock.js";
+import { createSupabaseLock, type SupabaseLockConfig } from "./lock.js";
 
 export interface SupabaseTreeControllerOptions extends CoreControllerOptions {
   client: SupabaseClient;
@@ -35,6 +35,10 @@ export interface SupabaseTreeControllerOptions extends CoreControllerOptions {
   // ── lock ─────────────────────────────────────────────────────────────────
   /** Heartbeat interval (ms). Default 30s. */
   heartbeatMs?: number;
+  /** Default "always"; "focused" lets an unfocused tab's lock expire. */
+  heartbeatPolicy?: SupabaseLockConfig["heartbeatPolicy"];
+  /** Release the held lock on unmount and on page hide. Default true. */
+  releaseOnDispose?: boolean;
   /** Override the lock RPC names / id arg if yours differ. */
   lockRpc?: { acquireFn?: string; releaseFn?: string; releaseAllFn?: string; touchFn?: string; idArg?: string };
   /** Fired when a held lock is lost (heartbeat fail, or realtime shows it moved off us). */
@@ -44,6 +48,28 @@ export interface SupabaseTreeControllerOptions extends CoreControllerOptions {
   // (core options — selectedId/searchQuery/matcher/filterMode/onSelect/onToggle/
   //  storageKey/storagePrefix — come from CoreControllerOptions)
 }
+
+/** Supabase-tier options beyond the core set — the single list `<SupabaseTree>` forwards (D3). */
+export const SUPABASE_OPTION_KEYS = [
+  "client",
+  "source",
+  "table",
+  "toNode",
+  "idColumn",
+  "parentColumn",
+  "select",
+  "orderBy",
+  "schema",
+  "realtime",
+  "pageSize",
+  "queryClient",
+  "heartbeatMs",
+  "heartbeatPolicy",
+  "releaseOnDispose",
+  "lockRpc",
+  "onLockLost",
+  "lockedBy",
+] as const satisfies readonly (keyof SupabaseTreeControllerOptions)[];
 
 /** {@link DatabaseTreeController} plus collaborative record locking. */
 export interface SupabaseTreeController extends DatabaseTreeController {
@@ -65,13 +91,15 @@ export interface SupabaseTreeController extends DatabaseTreeController {
 export function createSupabaseTreeController(opts: SupabaseTreeControllerOptions): SupabaseTreeController {
   const [held, setHeld] = createSignal<string | null>(null);
 
+  // The lock is the single source of truth for what we hold (ANALYSIS D10); this
+  // signal only mirrors it, written solely by onHeldChange.
   const lock = createSupabaseLock({
     client: opts.client,
     heartbeatMs: opts.heartbeatMs,
-    onLockLost: (id) => {
-      if (held() === id) setHeld(null);
-      opts.onLockLost?.(id);
-    },
+    heartbeatPolicy: opts.heartbeatPolicy,
+    releaseOnDispose: opts.releaseOnDispose,
+    onHeldChange: setHeld,
+    onLockLost: (id) => opts.onLockLost?.(id),
     ...opts.lockRpc,
   });
   onCleanup(() => lock.dispose());
@@ -120,19 +148,9 @@ export function createSupabaseTreeController(opts: SupabaseTreeControllerOptions
   return {
     ...db,
     heldId: held,
-    acquireLock: async (id) => {
-      const ok = await lock.acquire(id);
-      setHeld(lock.held());
-      return ok;
-    },
-    releaseLock: async () => {
-      await lock.release();
-      setHeld(lock.held());
-    },
-    releaseAllLocks: async () => {
-      await lock.releaseAll();
-      setHeld(lock.held());
-    },
+    acquireLock: (id) => lock.acquire(id),
+    releaseLock: () => lock.release(),
+    releaseAllLocks: () => lock.releaseAll(),
     refreshLock: async () => {
       await lock.refresh();
     },

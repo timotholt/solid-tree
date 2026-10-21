@@ -45,6 +45,6 @@
       "@tanstack/solid-query",
       "@supabase/supabase-js"
     ],
-    "limit": "11.5 kB"
+    "limit": "12.5 kB"
   }
 ]

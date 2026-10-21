@@ -76,18 +76,19 @@
     "build": "vite build && vite build -c vite.config.ssr.ts && tsc --emitDeclarationOnly --outDir dist",
     "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint .",
-    "test": "vitest run --project unit --project dom --project browser",
+    "test": "vitest run --project unit --project dom --project browser --project sql",
     "test:unit": "vitest run --project unit",
     "test:dom": "vitest run --project dom",
     "test:browser": "vitest run --project browser",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage --project unit --project dom --project browser",
-    "gate": "npm run typecheck && npm run lint && npm run coverage && npm run build && npm run test:package && npm run lint:package && npm run size",
+    "gate": "npm run typecheck && npm run lint && npm run coverage && npm run test:sql && npm run build && npm run test:package && npm run lint:package && npm run size",
     "prepare": "npm run build",
     "test:package": "vitest run --project package",
     "lint:package": "publint && attw --pack . --profile esm-only --exclude-entrypoints theme.css",
     "size": "size-limit",
-    "bench": "vitest run --project bench --silent=false"
+    "bench": "vitest run --project bench --silent=false",
+    "test:sql": "vitest run --project sql"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -108,6 +109,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
+    "@electric-sql/pglite": "^0.5.10",
     "@size-limit/preset-small-lib": "^14.2.0",
     "@solidjs/testing-library": "^0.8.10",
     "@supabase/supabase-js": "^2.118.0",
