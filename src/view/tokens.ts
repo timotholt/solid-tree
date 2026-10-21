@@ -30,6 +30,8 @@ export const STYLE_DEFAULTS = {
   "--tree-divider-margin-default": "8px",
   "--tree-divider-height-default": "1px",
   "--tree-spacer-width-default": "1.33em",
+  "--tree-check-gap-default": "0.33em",
+  "--tree-drop-color-default": "Highlight",
   "--tree-user-select-default": "none",
   // Multi-line: set --tree-label-white-space:normal + --tree-row-align-items:flex-start
   // (with a stacked renderLabel) to get 2/3/N-line rows. Defaults = single line.

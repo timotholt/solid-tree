@@ -119,6 +119,11 @@ export interface TreeSource {
   /** Sibling order, used to place realtime inserts and moves. Omit = append at the end. */
   compare?(a: TreeNodeData, b: TreeNodeData): number;
   /**
+   * Persist a drag/keyboard move. `<DatabaseTree>` uses it when the app passes no
+   * `onMove`; the realtime stream (or a refetch) then confirms the new position.
+   */
+  move?(sources: string[], target: string, position: "before" | "after" | "inside"): Promise<boolean | void>;
+  /**
    * Live updates. Call `onChange` per change; return an unsubscribe fn. DatabaseTree
    * subscribes on mount and unsubscribes on cleanup. Omit for static sources.
    */

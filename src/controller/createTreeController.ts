@@ -1,9 +1,15 @@
-import { DEV, createComputed, createEffect, createMemo, getOwner, on, untrack, type Accessor } from "solid-js";
+import { DEV, createComputed, createEffect, createMemo, createSignal, getOwner, on, untrack, type Accessor } from "solid-js";
 import {
+  applyMove,
   buildIndex,
+  canMove as structurallyMovable,
+  checkStateOf,
   defaultAccessors,
   flatten,
   placeholderId,
+  toggleCheck,
+  type CheckState,
+  type DropPosition,
   type Row,
   type SearchView,
   type TreeIndex,
@@ -70,6 +76,27 @@ export interface TreeController<T extends TreeNodeData = TreeNodeData> {
   /** Reveal `id` (expand its ancestors) and ask the view to scroll it into view. */
   scrollToId(id: string): void;
 
+  // ── rename ──
+  editingId: Accessor<string | null>;
+  canRenameNode(id: string): boolean;
+  startEditing(id: string): void;
+  cancelEditing(): void;
+  commitEditing(value: string): Promise<void>;
+  /** The optimistic label while a rename is in flight. */
+  pendingLabel(id: string): string | undefined;
+  renameOnBlur: Accessor<"commit" | "cancel">;
+
+  // ── checkboxes ──
+  isCheckable(id: string): boolean;
+  checkState(id: string): CheckState;
+  toggleChecked(id: string): void;
+  checkedIds: Accessor<ReadonlySet<string>>;
+
+  // ── moves ──
+  movesEnabled: Accessor<boolean>;
+  canMoveTo(sources: string[], target: string, position: DropPosition): boolean;
+  move(sources: string[], target: string, position: DropPosition): Promise<boolean>;
+
   /** While searching with the default matcher: the query to highlight; else null. */
   highlightQuery: Accessor<string | null>;
   /** Dim-mode search: true for rows that do not match. */
@@ -86,7 +113,9 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
     );
   }
 
-  const data = createMemo(() => access(opts.data) ?? []);
+  // Optimistic move overlay (SPEC-features 7.4): shown until onMove settles.
+  const [moveOverlay, setMoveOverlay] = createSignal<readonly T[] | null>(null);
+  const data = createMemo(() => moveOverlay() ?? access(opts.data) ?? []);
 
   // PLAN §2.4: controlled-ness is decided once. Warn (dev) if a controlled input later
   // drops to `undefined` — use `null` for "nothing" so it stays controlled on purpose.
@@ -233,6 +262,75 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
 
   let scroller: ((id: string) => void) | null = null;
 
+  // ── rename (SPEC-features 7.2) ───────────────────────────────────────────────
+  const [editingId, setEditingId] = createSignal<string | null>(null);
+  const [pending, setPending] = createSignal<ReadonlyMap<string, string>>(new Map());
+  const canRenameNode = (id: string) => {
+    const node = untrack(index).get(id);
+    if (!node || node.disabled || !opts.onRename) return false;
+    return !opts.canRename || opts.canRename(node);
+  };
+  const commitEditing = async (value: string) => {
+    const id = untrack(editingId);
+    if (id === null) return;
+    setEditingId(null);
+    const node = untrack(index).get(id);
+    const next = value.trim();
+    if (!node || !next || next === node.label || !opts.onRename) return;
+    setPending((m) => new Map(m).set(id, next));
+    try {
+      const ok = await opts.onRename(node, next);
+      if (ok === false) opts.onRenameError?.(node, new Error("rename rejected"));
+    } catch (e) {
+      opts.onRenameError?.(node, e);
+    } finally {
+      // The data wins once the result is in (the app updated it, or did not).
+      setPending((m) => {
+        const copy = new Map(m);
+        copy.delete(id);
+        return copy;
+      });
+    }
+  };
+
+  // ── checkboxes (SPEC-features 7.3) ───────────────────────────────────────────
+  const [ownChecked, setOwnChecked] = createSignal<ReadonlySet<string>>(new Set());
+  const checkedControlled = isProvided(opts, "checkedIds");
+  const checkedIds = createMemo<ReadonlySet<string>>(() => (checkedControlled ? new Set(access(opts.checkedIds) ?? []) : ownChecked()));
+  const isCheckable = (id: string) => {
+    const node = index().get(id);
+    if (!node || node.disabled || !opts.checkable) return false;
+    return typeof opts.checkable === "function" ? opts.checkable(node) : true;
+  };
+  const isLoaded = (id: string) => opts.isLoaded?.(id) ?? true;
+
+  // ── moves (SPEC-features 7.4) ────────────────────────────────────────────────
+  const canMoveTo = (sources: string[], target: string, position: DropPosition) => {
+    if (!opts.onMove) return false;
+    const idx = untrack(index);
+    if (!structurallyMovable(idx, sources, target, position)) return false;
+    if (sources.some((s) => idx.get(s)?.disabled)) return false;
+    return !opts.canMove || opts.canMove(sources, target, position);
+  };
+  const move = async (sources: string[], target: string, position: DropPosition) => {
+    if (!canMoveTo(sources, target, position)) return false;
+    if (opts.optimisticMoves !== false) {
+      const idx = untrack(index);
+      setMoveOverlay(
+        applyMove(untrack(data) as T[], idx, defaultAccessors<T>(), (node, children) => ({ ...node, children }) as T, sources, target, position)
+      );
+      if (position === "inside") expansion.set(target, true);
+    }
+    try {
+      const ok = await opts.onMove!(sources, target, position);
+      return ok !== false;
+    } catch {
+      return false;
+    } finally {
+      setMoveOverlay(null);
+    }
+  };
+
   return {
     nodes: data,
     displayNodes: createMemo(() => displayTree(data(), index(), search.view())),
@@ -279,6 +377,30 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
       const view = search.view();
       return !!view && view.mode === "dim" && !view.isKept(id);
     },
+    editingId,
+    canRenameNode,
+    startEditing: (id) => {
+      if (canRenameNode(id)) setEditingId(id);
+    },
+    cancelEditing: () => setEditingId(null),
+    commitEditing,
+    pendingLabel: (id) => pending().get(id),
+    renameOnBlur: () => opts.renameOnBlur ?? "commit",
+
+    isCheckable,
+    checkState: (id) => checkStateOf(index(), checkedIds(), id, opts.checkMode ?? "cascade", isLoaded),
+    toggleChecked: (id) => {
+      if (!untrack(() => isCheckable(id))) return;
+      const next = toggleCheck(untrack(index), untrack(checkedIds), id, opts.checkMode ?? "cascade", isLoaded);
+      if (!checkedControlled) setOwnChecked(next);
+      opts.onCheckedChange?.([...next]);
+    },
+    checkedIds,
+
+    movesEnabled: () => !!opts.onMove,
+    canMoveTo,
+    move,
+
     _registerScroller: (fn) => {
       scroller = fn;
     },

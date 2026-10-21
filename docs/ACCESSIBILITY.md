@@ -43,9 +43,25 @@ Each must have **zero** violations. Keyboard behavior is covered by unit and DOM
 | Shift+↓ / Shift+↑ | Extend the selection (multiple mode) |
 | Shift+click / Ctrl/Cmd+click | Range / toggle selection (multiple mode) |
 | Double-click | Activate |
+| F2 | Rename (when `onRename` is set). Enter commits, Escape cancels |
+| Space (checkable rows) | Toggle the checkbox (`aria-checked` on the treeitem) |
+| Ctrl+Shift+↑ / ↓ | Move before the previous / after the next sibling (when `onMove` is set) |
+| Ctrl+Shift+← / → | Move out of the parent / into the previous sibling |
+| Escape (while dragging) | Cancel the drag |
 
 Disabled nodes stay focusable, so users can discover them, but they cannot be selected or
 activated. `skipDisabled` in the core navigation skips them entirely.
+
+## Rename
+
+While a row is being renamed, its text input lives inside the treeitem. That is a
+transient "nested interactive" state, and the axe check for feature states disables only
+that rule. The input is labelled "Rename <label>", and focus returns to the row afterwards.
+
+## Drag-and-drop
+
+Every pointer move has a keyboard equivalent (Ctrl+Shift+Arrows), and each move is
+announced in the live region.
 
 ## The actions slot
 

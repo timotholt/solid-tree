@@ -16,7 +16,8 @@ export interface MemorySource extends TreeSource {
   insert(parentId: string | null, node: TreeNodeData, index?: number): void;
   update(node: Partial<TreeNodeData> & { id: string }): void;
   remove(id: string): void;
-  move(id: string, parentId: string | null, index?: number): void;
+  /** Reparent `id` under `parentId` (at `index`) and emit a move change. */
+  moveTo(id: string, parentId: string | null, index?: number): void;
   /** Emit a raw change without touching the backing tree. */
   emit(change: TreeChange): void;
   /** Make loads of this id (or "__roots") fail until heal(). */
@@ -110,13 +111,32 @@ export function createMemorySource(tree: TreeNodeData[], opts: MemorySourceOptio
       hit.list.splice(hit.list.indexOf(hit.node), 1);
       emit({ type: "remove", id });
     },
-    move(id, parentId, index) {
+    moveTo(id, parentId, index) {
       const hit = find(id);
       if (!hit) return;
       hit.list.splice(hit.list.indexOf(hit.node), 1);
       const list = listOf(parentId);
       list.splice(index ?? list.length, 0, hit.node);
       emit({ type: "move", id, parentId, index });
+    },
+    async move(sources, target, position) {
+      await delay();
+      for (const id of position === "after" ? [...sources].reverse() : sources) {
+        if (position === "inside") source.moveTo(id, target);
+        else {
+          const t = find(target);
+          if (!t) return false;
+          const parentId = t.parent?.id ?? null;
+          const hit = find(id);
+          if (!hit) continue;
+          hit.list.splice(hit.list.indexOf(hit.node), 1);
+          const list = listOf(parentId);
+          const at = list.indexOf(find(target)!.node) + (position === "after" ? 1 : 0);
+          list.splice(at, 0, hit.node);
+          emit({ type: "move", id, parentId, index: at });
+        }
+      }
+      return true;
     },
     emit,
     fail: (id) => void failing.add(id),

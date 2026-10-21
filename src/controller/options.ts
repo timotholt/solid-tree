@@ -1,6 +1,6 @@
 import type { Accessor } from "solid-js";
 import type { PersistenceAdapter } from "../state/persistence.js";
-import type { SelectionMode, FilterMode } from "../core/index.js";
+import type { SelectionMode, FilterMode, CheckMode, DropPosition } from "../core/index.js";
 import type { MaybeAccessor } from "../state/access.js";
 import { forward } from "../state/access.js";
 import type { TreeMatcher, TreeNodeData } from "../types.js";
@@ -45,6 +45,30 @@ export interface CoreControllerOptions<T extends TreeNodeData = TreeNodeData> {
   /** Collapsing an ancestor of the selection selects that ancestor. Default false (ANALYSIS B11). */
   selectAncestorOnCollapse?: boolean;
 
+  // ── rename (SPEC-features 7.2) ──
+  /** Enables inline rename (F2 / startEditing). Return false or reject to cancel. */
+  onRename?: (node: T, value: string) => boolean | void | Promise<boolean | void>;
+  canRename?: (node: T) => boolean;
+  /** Default "commit". */
+  renameOnBlur?: "commit" | "cancel";
+  onRenameError?: (node: T, error: unknown) => void;
+
+  // ── checkboxes (SPEC-features 7.3) ──
+  checkable?: boolean | ((node: T) => boolean);
+  /** Default "cascade". */
+  checkMode?: CheckMode;
+  /** Controlled checked ids. */
+  checkedIds?: MaybeAccessor<Iterable<string> | null | undefined>;
+  onCheckedChange?: (ids: string[]) => void;
+
+  // ── moves (SPEC-features 7.4) ──
+  /** Enables drag-and-drop and keyboard moves. Return false or reject to cancel. */
+  onMove?: (sources: string[], target: string, position: DropPosition) => boolean | void | Promise<boolean | void>;
+  /** Policy veto on top of the structural checks. */
+  canMove?: (sources: string[], target: string, position: DropPosition) => boolean;
+  /** Show moves immediately until onMove settles. Default true. */
+  optimisticMoves?: boolean;
+
   // ── search ──
   /** Controlled search query. */
   searchQuery?: MaybeAccessor<string | undefined>;
@@ -70,6 +94,17 @@ export const CORE_OPTION_KEYS = [
   "persistence",
   "revealSelection",
   "selectAncestorOnCollapse",
+  "onRename",
+  "canRename",
+  "renameOnBlur",
+  "onRenameError",
+  "checkable",
+  "checkMode",
+  "checkedIds",
+  "onCheckedChange",
+  "onMove",
+  "canMove",
+  "optimisticMoves",
   "searchQuery",
   "matcher",
   "filterMode",
@@ -90,6 +125,8 @@ export interface LazyHooks {
   placeholder?: (id: string) => "loading" | "error" | null;
   /** Restored-but-unknown expanded ids wait for their nodes instead of being pruned. */
   lazy?: boolean;
+  /** Whether a node's children are loaded (checkbox cascade). Default: always. */
+  isLoaded?: (id: string) => boolean;
 }
 
 export type DataInput<T> = MaybeAccessor<readonly T[]> | Accessor<readonly T[]>;

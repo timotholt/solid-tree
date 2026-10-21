@@ -9,7 +9,7 @@
       "@tanstack/solid-query",
       "@supabase/supabase-js"
     ],
-    "limit": "9.5 kB"
+    "limit": "12.5 kB"
   },
   {
     "name": "/virtual",
@@ -21,7 +21,7 @@
       "@tanstack/solid-query",
       "@supabase/supabase-js"
     ],
-    "limit": "10 kB"
+    "limit": "13 kB"
   },
   {
     "name": "/database",
@@ -33,7 +33,7 @@
       "@tanstack/solid-query",
       "@supabase/supabase-js"
     ],
-    "limit": "11.5 kB"
+    "limit": "14.5 kB"
   },
   {
     "name": "/supabase",
@@ -45,7 +45,7 @@
       "@tanstack/solid-query",
       "@supabase/supabase-js"
     ],
-    "limit": "13.5 kB"
+    "limit": "16.5 kB"
   },
   {
     "name": "/headless",
@@ -57,6 +57,6 @@
       "@tanstack/solid-query",
       "@supabase/supabase-js"
     ],
-    "limit": "7 kB"
+    "limit": "9 kB"
   }
 ]

@@ -350,6 +350,15 @@ Exit: B3, B8, D10–D12, G4, G7 closed.
 
 ### Phase 7 — Features (serial; specs written locally, implemented in cloud sessions)
 
+**Done 2026-10-20 (local), per [SPEC-features.md](SPEC-features.md).**
+- Multi-select, rename, checkboxes, and drag-and-drop with keyboard moves are all in,
+  with controller, DOM and real-browser pointer tests (including touch long-press,
+  auto-scroll and axe).
+- Found while testing: realtime move changes ignored their `index`. Fixed.
+- Follow-up (not done): the features are opt-in at runtime but always bundled. Core grew
+  to 11.6 kB brotli. Make drag-and-drop and rename separately importable so unused
+  features tree-shake out.
+
 Before implementation, each feature gets a spec section in `docs/SPEC-features.md`,
 written in a local session.
 

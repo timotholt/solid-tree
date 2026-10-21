@@ -6,6 +6,21 @@ breaking changes; they are always marked **Breaking**. Defect IDs refer to
 
 ## Unreleased
 
+### Added (phase 7: features — see docs/SPEC-features.md)
+- **Inline rename:** `onRename` (enables it), `canRename`, `renameOnBlur`,
+  `onRenameError`. F2 or `startEditing(id)`; Enter commits, Escape cancels. The new label
+  shows optimistically while `onRename` runs and rolls back on `false` or rejection.
+- **Checkboxes:** `checkable` (boolean or predicate), `checkMode` cascade or strict,
+  controlled `checkedIds` + `onCheckedChange`. `aria-checked` sits on the treeitem. Space
+  toggles. A lazy branch whose children are not loaded keeps its explicit value.
+- **Drag-and-drop and keyboard moves:** `onMove` (enables it), `canMove`,
+  `optimisticMoves`. Pointer drag (5 px threshold, 400 ms touch long press) with
+  before/inside/after zones, an inline drop indicator, hover-to-expand, auto-scroll
+  (also in `<VirtualTree>`), multi-selection drag and Escape to cancel.
+  Ctrl+Shift+Arrows move by keyboard, with live announcements. `moveNodes()` helper for
+  in-memory data. `TreeSource.move` is used by the database tier by default.
+- Realtime `move` changes honor their `index`.
+
 ### Changed (phase 4: views + accessibility)
 - **Breaking (markup):** rows are rendered flat. Each row is a `.solid-tree-row` wrapper
   (`role="none"`) around a `.solid-tree-item` treeitem. `<Tree>` no longer nests DOM by

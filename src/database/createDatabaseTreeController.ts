@@ -55,7 +55,8 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
   const rootsKey = [prefix, "roots"];
   const childrenKey = (id: string) => [prefix, "children", id];
   const compare = (a: TreeNodeData, b: TreeNodeData) => opts.source.compare?.(a, b) ?? 0;
-  const insertSorted = (list: TreeNodeData[], node: TreeNodeData) => {
+  const insertSorted = (list: TreeNodeData[], node: TreeNodeData, at?: number) => {
+    if (at !== undefined) return [...list.slice(0, at), node, ...list.slice(at)];
     if (!opts.source.compare) return [...list, node];
     const i = list.findIndex((x) => compare(node, x) < 0);
     return i < 0 ? [...list, node] : [...list.slice(0, i), node, ...list.slice(i)];
@@ -172,9 +173,9 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
       if (childrenStore[parentId]?.some((n) => n.id === id)) setChildren(parentId, (arr) => fn(arr ?? []));
   };
 
-  const insertUnder = (parentId: string | null, node: TreeNodeData) => {
-    if (parentId == null) patchRoots((arr) => insertSorted(arr, node));
-    else if (childrenStore[parentId]) setChildren(parentId, (arr) => insertSorted(arr ?? [], node));
+  const insertUnder = (parentId: string | null, node: TreeNodeData, at?: number) => {
+    if (parentId == null) patchRoots((arr) => insertSorted(arr, node, at));
+    else if (childrenStore[parentId]) setChildren(parentId, (arr) => insertSorted(arr ?? [], node, at));
     else setPromoted(parentId, true); // unloaded parent: make it expandable; it loads fresh
   };
 
@@ -186,7 +187,7 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
     ids.forEach((x) => client.removeQueries({ queryKey: childrenKey(x) }));
   };
 
-  const move = (id: string, parentId: string | null) => {
+  const move = (id: string, parentId: string | null, at?: number) => {
     const node = rawNode(id);
     if (!node) {
       // We never loaded the moved node, so we cannot place it ourselves: refetch the
@@ -197,7 +198,7 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
       return;
     }
     patchHolder(id, (arr) => arr.filter((n) => n.id !== id));
-    insertUnder(parentId, node);
+    insertUnder(parentId, node, at);
   };
 
   const handleChange = (c: TreeChange) => batch(() => applyChange(c));
@@ -208,7 +209,7 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
       patchHolder(c.node.id, (arr) => arr.map((n) => (n.id === c.node.id ? { ...n, ...c.node } : n)));
       if (c.node.payload?.leaf === false) setPromoted(c.node.id, true);
     } else if (c.type === "move") {
-      move(c.id, c.parentId);
+      move(c.id, c.parentId, c.index);
     } else if (c.type === "insert") {
       insertUnder(c.parentId, c.node);
     } else if (c.type === "remove") {
@@ -257,6 +258,15 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
         return !!node && canHaveChildren(node);
       },
       placeholder: (id: string) => (status[id] === "error" ? ("error" as const) : ("loading" as const)),
+      // Checkbox cascade only derives a parent's state from children it has seen.
+      isLoaded: (id: string) => {
+        if (childrenStore[id]) return true;
+        const node = ref.core?.index().get(id);
+        return !node || !canHaveChildren(node);
+      },
+      get onMove() {
+        return opts.onMove ?? (opts.source.move ? (s: string[], t: string, p: "before" | "after" | "inside") => opts.source.move!(s, t, p) : undefined);
+      },
       onToggle: (id: string, expanded: boolean) => {
         if (expanded) void loadChildren(id);
         opts.onToggle?.(id, expanded);

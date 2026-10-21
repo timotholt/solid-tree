@@ -7,3 +7,4 @@ export type { TreeNodeData, TreeProps, TreeMatcher, TreeRowClickPolicy, TreeSour
 export { Chevron } from "./view/Chevron.js";
 export type { ChevronProps } from "./view/Chevron.js";
 export { storage } from "./state/storage.js";
+export { moveNodes } from "./moveNodes.js";

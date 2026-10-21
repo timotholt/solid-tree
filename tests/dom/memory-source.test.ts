@@ -38,7 +38,7 @@ describe("createMemorySource", () => {
     t.expand("veg");
     await flush();
     source.insert("veg", { id: "pea", label: "Pea", type: "t" });
-    source.move("banana", "veg");
+    source.moveTo("banana", "veg");
     await flush();
     expect(t.flatRows().map((r) => r.id)).toEqual(["fruit", "veg", "carrot", "pea", "banana"]);
     t.expand("fruit");

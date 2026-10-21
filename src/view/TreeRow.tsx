@@ -107,6 +107,53 @@ const PlaceholderRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
   );
 };
 
+/** Inline rename input (SPEC-features 7.2). Enter commits, Escape cancels, blur per policy. */
+const RenameInput: Component<{ id: string; label: string }> = (props) => {
+  const ctx = useTree();
+  let done = false;
+  const finish = (commit: boolean, value: string) => {
+    if (done) return;
+    done = true;
+    if (commit) void ctx.tree.commitEditing(value);
+    else ctx.tree.cancelEditing();
+    ctx.view.focusRow(props.id);
+  };
+  return (
+    <input
+      class="solid-tree-rename"
+      value={props.label}
+      aria-label={`Rename ${props.label}`}
+      ref={(el) =>
+        queueMicrotask(() => {
+          el.focus();
+          el.select();
+        })
+      }
+      onKeyDown={(e) => {
+        e.stopPropagation(); // the tree's keys must not act while typing
+        if (e.key === "Enter") finish(true, e.currentTarget.value);
+        else if (e.key === "Escape") finish(false, "");
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onBlur={(e) => finish(ctx.tree.renameOnBlur() === "commit", e.currentTarget.value)}
+      style={{ font: "inherit", flex: "1", "min-width": "0", padding: "0 2px", margin: "0" }}
+    />
+  );
+};
+
+const CHECK_GLYPH = { checked: "☑", unchecked: "☐", mixed: "▣" } as const;
+
+/** Drop indicator drawn inline, so drag feedback works without theme.css. */
+const dropShadow = (pos: string | undefined) =>
+  pos === "before"
+    ? `inset 0 2px 0 ${tok("drop-color")}`
+    : pos === "after"
+      ? `inset 0 -2px 0 ${tok("drop-color")}`
+      : pos === "inside"
+        ? `inset 0 0 0 2px ${tok("drop-color")}`
+        : undefined;
+
 const NodeRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
   const ctx = useTree();
   const r = props.row;
@@ -117,6 +164,9 @@ const NodeRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
   const isAction = () => node().variant === "action";
   const dimmed = () => ctx.tree.isDimmed(r().id);
   const selected = () => ctx.tree.selectedIds().has(r().id);
+  const label = () => ctx.tree.pendingLabel(r().id) ?? node().label;
+  const editing = () => ctx.tree.editingId() === r().id;
+  const itemProps = ctx.view.getItemProps(r);
 
   return (
     <div
@@ -132,12 +182,15 @@ const NodeRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
         display: "flex",
         "align-items": tok("row-align-items") as JSX.CSSProperties["align-items"],
         "--tree-depth": String(r().depth),
-        opacity: isAction() ? tok("action-opacity") : dimmed() ? tok("dim-opacity") : node().disabled ? tok("dim-opacity") : "1",
+        opacity: isAction() ? tok("action-opacity") : dimmed() || node().disabled ? tok("dim-opacity") : itemProps["data-dragging"] !== undefined ? "0.6" : "1",
+        "box-shadow": dropShadow(itemProps["data-drop"]),
       }}
+      data-drop={itemProps["data-drop"]}
+      data-dragging={itemProps["data-dragging"]}
     >
       <div
         class="solid-tree-item"
-        {...ctx.view.getItemProps(r)}
+        {...itemProps}
         data-depth={r().depth}
         data-variant={node().variant ?? "default"}
         data-has-children={r().hasChildren ? "" : undefined}
@@ -172,6 +225,20 @@ const NodeRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
             <span class="solid-tree-spacer" style={`display:inline-block; width:${tok("spacer-width")};`} />
           </Show>
 
+          <Show when={ctx.tree.isCheckable(r().id)}>
+            <span
+              class="solid-tree-check"
+              aria-hidden="true"
+              data-state={ctx.tree.checkState(r().id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                ctx.tree.toggleChecked(r().id);
+              }}
+              style={`flex-shrink:0; margin-right:${tok("check-gap")}; cursor:pointer;`}
+            >
+              {CHECK_GLYPH[ctx.tree.checkState(r().id)]}
+            </span>
+          </Show>
           <Show when={ctx.renderLeading}>{ctx.renderLeading!(r())}</Show>
 
           <Show when={node().iconLeft}>
@@ -185,8 +252,13 @@ const NodeRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
             style={`flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: ${tok("label-white-space")}; display: flex; align-items: center; ${r().depth === 0 && r().hasChildren ? `font-weight:${tok("group-weight")};` : ""}`}
           >
             <span style={`overflow: hidden; text-overflow: ellipsis; white-space: ${tok("label-white-space")};`}>
-              <Show when={ctx.renderLabel} fallback={<HighlightedLabel label={node().label} query={ctx.tree.highlightQuery()} />}>
-                {ctx.renderLabel!(node())}
+              <Show
+                when={!editing()}
+                fallback={<RenameInput id={r().id} label={node().label} />}
+              >
+                <Show when={ctx.renderLabel && !ctx.tree.pendingLabel(r().id)} fallback={<HighlightedLabel label={label()} query={ctx.tree.highlightQuery()} />}>
+                  {ctx.renderLabel!(node())}
+                </Show>
               </Show>
             </span>
             <Show when={node().count !== undefined}>
