@@ -8,6 +8,7 @@ export interface CheckResult {
   slug: string;
   title: string;
   ok: boolean;
+  skipped?: boolean;
   ms: number;
   error?: string;
 }
@@ -109,7 +110,8 @@ export async function runChecks(entries: Entry[], onResult: (r: CheckResult) => 
       if (result.violations.length) throw new Error(`axe: ${result.violations.map((v) => v.id).join(", ")}`);
       onResult({ slug: e.slug, title: e.meta.title, ok: true, ms: performance.now() - t0 });
     } catch (err) {
-      onResult({ slug: e.slug, title: e.meta.title, ok: false, ms: performance.now() - t0, error: err instanceof Error ? err.message : String(err) });
+      const skipped = err instanceof Error && err.name === "CheckSkipped";
+      onResult({ slug: e.slug, title: e.meta.title, ok: skipped, skipped, ms: performance.now() - t0, error: err instanceof Error ? err.message : String(err) });
     } finally {
       dispose?.();
       host.remove();

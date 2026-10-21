@@ -43,3 +43,11 @@ export type ExampleCheck = (root: HTMLElement, h: CheckHelpers) => Promise<void>
  * renders, e.g. to install h.mockFetch for an example that fetches on mount.
  */
 export type ExampleBefore = (h: CheckHelpers) => void;
+
+/**
+ * Throw from a `check` when the environment, not the code, prevents running it (e.g. a
+ * large download on a slow connection). The live gallery shows it as skipped; CI fails.
+ */
+export class CheckSkipped extends Error {
+  name = "CheckSkipped";
+}

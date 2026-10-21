@@ -24,7 +24,8 @@ export function Gallery() {
     await runChecks(entries, (r) => setResults((rs) => [...rs, r]), setPaused);
     setRunning(false);
   };
-  const passed = () => results().filter((r) => r.ok).length;
+  const passed = () => results().filter((r) => r.ok && !r.skipped).length;
+  const skipped = () => results().filter((r) => r.skipped).length;
 
   return (
     <div class="gallery">
@@ -49,14 +50,14 @@ export function Gallery() {
           </button>
           <Show when={results().length}>
             <p role="status">
-              {passed()}/{results().length} passed{running() ? "…" : ""}
+              {passed()}/{results().length - skipped()} passed{skipped() ? `, ${skipped()} skipped` : ""}{running() ? "…" : ""}
               {paused() ? " (paused while this tab is in the background)" : ""}
             </p>
             <ul>
               <For each={results()}>
                 {(r) => (
                   <li data-ok={r.ok ? "" : undefined} title={r.error}>
-                    {r.ok ? "✓" : "✗"} {r.title} <span class="num">{Math.round(r.ms)} ms</span>
+                    {r.skipped ? "⏭" : r.ok ? "✓" : "✗"} {r.title} <span class="num">{r.skipped ? "skipped" : `${Math.round(r.ms)} ms`}</span>
                     <Show when={r.error}>
                       <div class="check-error">{r.error}</div>
                     </Show>

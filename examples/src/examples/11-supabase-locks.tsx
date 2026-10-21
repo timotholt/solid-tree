@@ -1,7 +1,7 @@
 import { Show, createSignal } from "solid-js";
 import { createClient } from "@supabase/supabase-js";
 import { SupabaseTree, createSupabaseTreeController, type TreeNodeData } from "@timotholt/solid-tree/supabase";
-import type { ExampleCheck, ExampleMeta } from "../example.js";
+import { CheckSkipped, type ExampleCheck, type ExampleMeta } from "../example.js";
 import { TwoUserLockDemo, TTL_SECONDS } from "../lib/TwoUserLockDemo.js";
 
 export const meta: ExampleMeta = {
@@ -135,6 +135,9 @@ export const check: ExampleCheck = async (root, h) => {
   // Postgres boots in the page (WASM, a ~5.5 MB download on first visit), then both
   // panes load the table. Allow a slow connection up to 60 s.
   for (let i = 0; i < 600 && !(pane("alice") && pane("bob") && h.has("budget", pane("alice")) && h.has("budget", pane("bob"))); i++) await h.settle(100);
+  if (!(pane("alice") && h.has("budget", pane("alice"))) && root.textContent?.includes("Starting Postgres")) {
+    throw new CheckSkipped("Postgres (~5.5 MB) is still downloading on this connection");
+  }
   await until(() => !!pane("alice") && !!pane("bob") && h.has("budget", pane("alice")) && h.has("budget", pane("bob")), "both panes loaded");
 
   // Alice locks Budget; Bob sees it arrive over realtime.
