@@ -62,6 +62,13 @@ render a blank tree. See [Getting started](docs/guide/getting-started.md).
 
 For AI coding agents, [AGENTS.md](AGENTS.md) is the compact usage contract.
 
+## Releasing
+
+1. Bump `version` in package.json and move CHANGELOG's "Unreleased" notes under it.
+2. Commit, then tag and push: `git tag v0.18.0 && git push origin v0.18.0`.
+3. `.github/workflows/release.yml` runs the full gate and publishes to npm with provenance
+   (npm Trusted Publishing, no token).
+
 ## Develop
 
 ```bash

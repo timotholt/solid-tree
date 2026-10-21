@@ -4,7 +4,9 @@ All notable changes are listed here. While on 0.x, a minor version may contain
 breaking changes; they are always marked **Breaking**. Defect IDs refer to
 [docs/ANALYSIS.md](docs/ANALYSIS.md).
 
-## Unreleased
+## 0.17.0 — 2026-10-21
+
+The 1.0 rebuild (docs/PLAN-rebuild.md, Phases 0–8). Upgrade notes: docs/guide/migration-0.x.md.
 
 ### Added (demo)
 - `createPGliteSupabase(db)` in `/testing`: a Supabase-shaped client over an in-browser

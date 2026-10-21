@@ -1,7 +1,33 @@
 {
   "name": "@timotholt/solid-tree",
-  "version": "0.16.0",
-  "description": "A small, themeable SolidJS tree-view component (expand/collapse with persistence, selection, icons, counts, dividers, per-node action slots).",
+  "version": "0.17.0",
+  "description": "Accessible, fast, fully featured tree view for SolidJS: virtualization, async/realtime data sources, Supabase locking, multi-select, rename, checkboxes, drag-and-drop, and a headless API.",
+  "keywords": [
+    "solid",
+    "solidjs",
+    "solid-js",
+    "tree",
+    "treeview",
+    "tree-view",
+    "virtual",
+    "virtualized",
+    "accessible",
+    "a11y",
+    "wai-aria",
+    "headless",
+    "drag-and-drop",
+    "supabase",
+    "realtime"
+  ],
+  "homepage": "https://timotholt.github.io/solid-tree/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/timotholt/solid-tree.git"
+  },
+  "bugs": {
+    "url": "https://github.com/timotholt/solid-tree/issues"
+  },
+  "author": "Timothy Otholt",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
@@ -9,7 +35,10 @@
   ],
   "files": [
     "dist",
-    "src"
+    "src",
+    "supabase/migrations/0003_solid_tree_lock.sql",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -82,6 +111,9 @@
       }
     },
     "./theme.css": "./src/theme.css"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "vite build && vite build -c vite.config.ssr.ts && tsc --emitDeclarationOnly --outDir dist",

@@ -98,3 +98,23 @@ describe("published package", () => {
     expect(() => execFileSync(process.execPath, [tsc, "-p", "tsconfig.json"], { cwd: dir, encoding: "utf8" })).not.toThrow();
   });
 });
+
+describe("solid-condition source is self-contained", () => {
+  it("every relative import in the shipped src/ resolves inside the tarball", () => {
+    const listing = execFileSync("tar", ["-tzf", execFileSync("ls", [dir], { encoding: "utf8" }).split("\n").find((f) => f.endsWith(".tgz"))!], { cwd: dir, encoding: "utf8" })
+      .split("\n")
+      .map((l) => l.replace(/^package\//, ""));
+    const files = new Set(listing);
+    const missing: string[] = [];
+    for (const f of listing.filter((l) => /^src\/.*\.tsx?$/.test(l))) {
+      const text = readFileSync(join(dir, "node_modules", ...pkg.name.split("/"), f), "utf8");
+      for (const m of text.matchAll(/(?:from|import)\s*\(?\s*["'](\.{1,2}\/[^"']+)["']/g)) {
+        const spec = m[1].replace(/\?raw$/, "");
+        const base = join(f, "..", spec).replace(/\\/g, "/");
+        const candidates = [base, base.replace(/\.js$/, ".ts"), base.replace(/\.js$/, ".tsx")];
+        if (!candidates.some((c) => files.has(c))) missing.push(`${f} → ${m[1]}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+});

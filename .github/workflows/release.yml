@@ -1,0 +1,41 @@
+name: Release
+
+# Publishes to npm when a version tag (v*) is pushed, via npm Trusted Publishing:
+# no token is stored; npm verifies this workflow through GitHub's OIDC identity and
+# attaches a signed provenance statement.
+#
+# One-time setup on npmjs.com: package → Settings → Trusted Publisher → GitHub Actions,
+# repository timotholt/solid-tree, workflow release.yml.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm ci
+        working-directory: examples
+      - run: npx playwright install --with-deps chromium
+      - name: Tag matches package.json
+        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - run: npm run gate
+      - name: Publish (skipped if this version is already on npm)
+        run: |
+          NAME=$(node -p 'require("./package.json").name'); VERSION=$(node -p 'require("./package.json").version')
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already published; nothing to do."
+          else
+            npm publish --provenance --access public
+          fi
