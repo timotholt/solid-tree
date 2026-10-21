@@ -87,6 +87,6 @@ describe("gallery examples", () => {
       expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 120)}`)).toEqual([]);
       infoSpy.mockRestore();
       host.remove();
-    }, 20_000);
+    }, 90_000);
   }
 });

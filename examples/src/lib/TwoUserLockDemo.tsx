@@ -36,6 +36,11 @@ export interface DemoHandle {
 export function TwoUserLockDemo(props: { onReady?: (h: DemoHandle) => void }) {
   const [sb, setSb] = createSignal<PGliteSupabase>();
   const [error, setError] = createSignal("");
+  // First visit downloads Postgres compiled to WebAssembly (~5.5 MB gzipped); the browser
+  // caches it after that. Show progress so a slow connection never looks like a hang.
+  const [elapsed, setElapsed] = createSignal(0);
+  const tick = setInterval(() => setElapsed((s) => s + 1), 1000);
+  onCleanup(() => clearInterval(tick));
   let db: { close(): Promise<void> } | undefined;
   let disposed = false;
   onCleanup(() => {
@@ -54,16 +59,24 @@ export function TwoUserLockDemo(props: { onReady?: (h: DemoHandle) => void }) {
       // Short TTL so expiry is watchable; only the holder may edit (RLS).
       await s.installLock("public.docs", { ttl: `${TTL_SECONDS} seconds`, protectUpdates: true });
       if (disposed) return;
+      clearInterval(tick);
       setSb(s);
       props.onReady?.({ sb: s });
     } catch (e) {
+      clearInterval(tick);
       setError(String((e as Error)?.message ?? e));
     }
   });
   return (
     <Show
       when={sb()}
-      fallback={<p class="muted" role="status">{error() ? `Could not start Postgres: ${error()}` : "Starting Postgres in your browser…"}</p>}
+      fallback={
+        <p class="muted" role="status">
+          {error()
+            ? `Could not start Postgres: ${error()}`
+            : `Starting Postgres in your browser… ${elapsed()}s (the first visit downloads about 5.5 MB of WebAssembly; later visits use the browser cache)`}
+        </p>
+      }
     >
       {(s) => (
         <div class="split" style={{ "grid-template-columns": "1fr 1fr" }}>

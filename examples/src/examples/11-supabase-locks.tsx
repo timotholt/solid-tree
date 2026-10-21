@@ -132,7 +132,9 @@ export const check: ExampleCheck = async (root, h) => {
     h.expect(ok() ? what : `timed out waiting for: ${what}`).toBe(what);
   };
 
-  // Postgres boots in the page (WASM), then both panes load the table.
+  // Postgres boots in the page (WASM, a ~5.5 MB download on first visit), then both
+  // panes load the table. Allow a slow connection up to 60 s.
+  for (let i = 0; i < 600 && !(pane("alice") && pane("bob") && h.has("budget", pane("alice")) && h.has("budget", pane("bob"))); i++) await h.settle(100);
   await until(() => !!pane("alice") && !!pane("bob") && h.has("budget", pane("alice")) && h.has("budget", pane("bob")), "both panes loaded");
 
   // Alice locks Budget; Bob sees it arrive over realtime.
