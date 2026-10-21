@@ -2,13 +2,14 @@ import { Show, createSignal } from "solid-js";
 import { createClient } from "@supabase/supabase-js";
 import { SupabaseTree, createSupabaseTreeController, type TreeNodeData } from "@timotholt/solid-tree/supabase";
 import type { ExampleCheck, ExampleMeta } from "../example.js";
+import { TwoUserLockDemo, TTL_SECONDS } from "../lib/TwoUserLockDemo.js";
 
 export const meta: ExampleMeta = {
   order: 11,
   title: "Supabase + record locks",
   description:
-    "<SupabaseTree> over a real table: lazy rows, live realtime, and server-enforced 'one editor per record' locks. Without Supabase env vars it shows how to set one up.",
-  tags: ["supabase", "realtime", "locking"],
+    "Two users side by side, one real Postgres running in your browser with the production lock SQL, row-level security and realtime. Lock a document as Alice and watch Bob get refused; go idle and the lock expires; Bob (admin) can force-release.",
+  tags: ["supabase", "realtime", "locking", "no backend needed"],
 };
 
 const SB_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -105,19 +106,60 @@ function Live(props: { url: string; anonKey: string }) {
 
 export default function SupabaseLocks() {
   return (
-    <Show when={SB_URL && SB_KEY} fallback={<HowTo />}>
-      <Live url={SB_URL!} anonKey={SB_KEY!} />
-    </Show>
+    <>
+      <p class="muted">
+        Each pane is an unmodified <code>&lt;SupabaseTree&gt;</code> signed in as a different user. Things to try: lock a document
+        in one pane and click it in the other; press <em>Edit selected</em> without holding the lock (row-level security refuses
+        it); press <em>Go idle</em> and wait {TTL_SECONDS}s — the lock expires and the other user can take it.
+      </p>
+      <TwoUserLockDemo />
+      <h2 style={{ "font-size": "17px", "margin-top": "24px" }}>Use your own Supabase</h2>
+      <Show when={SB_URL && SB_KEY} fallback={<HowTo />}>
+        <Live url={SB_URL!} anonKey={SB_KEY!} />
+      </Show>
+    </>
   );
 }
 
 export const check: ExampleCheck = async (root, h) => {
-  // Tests run without env vars (and without network): the how-to panel must render.
-  if (SB_URL && SB_KEY) return;
-  const howto = root.querySelector('[data-testid="howto"]');
-  h.expect(howto).not.toBeNull();
-  h.expect(howto!.textContent).toContain("VITE_SUPABASE_URL");
-  h.expect(howto!.textContent).toContain("solid_tree.install_lock");
-  h.expect(howto!.textContent).toContain("acquireLock");
-  h.expect(root.querySelector('[role="tree"]')).toBeNull();
+  const pane = (user: string) => root.querySelector<HTMLElement>(`[data-user="${user}"]`)!;
+  const status = (user: string) => root.querySelector(`[data-testid="status-${user}"]`)!.textContent ?? "";
+  const label = (user: string, id: string) => h.row(id, pane(user)).textContent ?? "";
+  const button = (user: string, text: string) =>
+    Array.from(pane(user).querySelectorAll("button")).find((b) => b.textContent?.startsWith(text))!;
+  const until = async (ok: () => boolean, what: string) => {
+    for (let i = 0; i < 100 && !ok(); i++) await h.settle(50);
+    h.expect(ok() ? what : `timed out waiting for: ${what}`).toBe(what);
+  };
+
+  // Postgres boots in the page (WASM), then both panes load the table.
+  await until(() => !!pane("alice") && !!pane("bob") && h.has("budget", pane("alice")) && h.has("budget", pane("bob")), "both panes loaded");
+
+  // Alice locks Budget; Bob sees it arrive over realtime.
+  await h.click(h.row("budget", pane("alice")));
+  await until(() => status("alice").includes("Locked"), "alice holds budget");
+  await until(() => label("bob", "budget").includes("alice"), "bob sees alice's lock");
+  h.expect(label("alice", "budget")).toContain("you");
+
+  // Bob is refused, and row-level security refuses his edit.
+  await h.click(h.row("budget", pane("bob")));
+  await until(() => status("bob").includes("locked by someone else"), "bob refused");
+  button("bob", "Edit selected").click();
+  await until(() => status("bob").includes("refused by row-level security"), "bob's edit refused");
+
+  // Alice can edit; Bob (admin) force-releases; Alice learns she lost it.
+  button("alice", "Edit selected").click();
+  await until(() => status("alice").includes("Edit saved"), "alice's edit saved");
+  await until(() => label("bob", "budget").includes("edited by Alice"), "bob sees the edit live");
+  button("bob", "Force-release").click();
+  await until(() => status("alice").includes("Lost the lock"), "alice told she lost the lock");
+
+  // Now Bob can take it.
+  await h.click(h.row("budget", pane("bob")));
+  await until(() => status("bob").includes("Locked"), "bob holds budget");
+  button("bob", "Release").click();
+  await until(() => !label("alice", "budget").includes("🔒"), "lock released everywhere");
+
+  // The "use your own Supabase" guide is there (no env vars in tests).
+  if (!(SB_URL && SB_KEY)) h.expect(root.querySelector('[data-testid="howto"]')).not.toBeNull();
 };

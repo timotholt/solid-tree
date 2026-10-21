@@ -6,6 +6,16 @@ breaking changes; they are always marked **Breaking**. Defect IDs refer to
 
 ## Unreleased
 
+### Added (demo)
+- `createPGliteSupabase(db)` in `/testing`: a Supabase-shaped client over an in-browser
+  (or in-Node) PGlite database. It runs the real lock SQL, row-level security and
+  trigger-based realtime, so several users can share one database. Use it for demos and
+  Docker-free tests. Optional peer `@electric-sql/pglite`.
+- Example 11 is now a no-backend, two-user demo. Alice and Bob each have an unmodified
+  `<SupabaseTree>` in one tab: locks, refusals, row-level-security-guarded edits, expiry
+  by going idle, and an admin force-release. A setup guide for your own Supabase
+  project follows.
+
 ### Added (phase 8: examples, docs, site)
 - Example gallery (`examples/`): 15 examples, from quick start to drag-and-drop. Each is
   also a browser test (it renders, axe is clean, and its scripted check passes). A

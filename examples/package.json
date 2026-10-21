@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/solid-query": "^5.104.5",
     "@timotholt/solid-tree": "file:..",

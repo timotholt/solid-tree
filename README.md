@@ -1,5 +1,7 @@
 # @timotholt/solid-tree
 
+**[Live demo, docs and test report →](https://timotholt.github.io/solid-tree/)** (the gallery can run its own test suite in your browser)
+
 An accessible, fast, fully featured tree view for **SolidJS**: from a 10-line sidebar to
 a 100,000-node virtualized explorer, a lazy-loading remote tree with realtime updates, or
 fully custom markup through a headless API.
