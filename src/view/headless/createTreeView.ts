@@ -1,8 +1,9 @@
-import { createMemo, createSignal, onCleanup, untrack, type Accessor, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, untrack, type Accessor, type JSX } from "solid-js";
 import type { TreeController } from "../../controller/index.js";
 import { isTypeaheadKey, resolveKey, typeahead, type DropPosition, type TypeaheadState } from "../../core/index.js";
 import type { FlatRow, TreeRowClickPolicy } from "../../types.js";
 import { shouldToggleFromRowClick } from "../navigation.js";
+import type { DragAndDrop, Drop } from "./dnd.js";
 
 /** What the database tier adds, detected structurally so the core view stays generic. */
 interface MaybeLazy {
@@ -85,146 +86,60 @@ export function createTreeView(opts: TreeViewOptions) {
   };
 
   // ── pointer drag-and-drop ───────────────────────────────────────────────────
-  interface Drag {
-    pointerId: number;
-    rowId: string;
-    sources: string[];
-    x: number;
-    y: number;
-    started: boolean;
-    touch: boolean;
-    timer?: ReturnType<typeof setTimeout>;
-    hoverTimer?: ReturnType<typeof setTimeout>;
-    hoverId?: string;
-    raf?: number;
-  }
-  const [drop, setDrop] = createSignal<{ target: string; position: DropPosition } | null>(null);
+  // ── pointer drag-and-drop: loaded on demand (./dnd.ts) ──────────────────────
+  const [drop, setDrop] = createSignal<Drop | null>(null);
   const [draggingIds, setDraggingIds] = createSignal<ReadonlySet<string>>(new Set());
-  let drag: Drag | null = null;
-  let suppressClick = false;
-
-  const scrollParent = (): HTMLElement | null => {
-    let el: HTMLElement | null = opts.getContainer() ?? null;
-    while (el) {
-      const oy = getComputedStyle(el).overflowY;
-      if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight) return el;
-      el = el.parentElement;
-    }
-    return null;
+  let dnd: DragAndDrop | undefined;
+  let loadingDnd = false;
+  let disposed = false;
+  // A gesture that starts before ./dnd.ts has loaded is buffered (press, latest move,
+  // release) and replayed when it arrives, so even an immediate drag is not lost.
+  let pending: { down: [PointerEvent, FlatRow]; move?: PointerEvent; up?: PointerEvent } | undefined;
+  const bufferMove = (e: PointerEvent) => {
+    if (pending && e.pointerId === pending.down[0].pointerId) pending.move = e;
   };
-
-  const computeDrop = () => {
-    if (!drag?.started) return;
-    const doc = opts.getContainer()?.ownerDocument ?? document;
-    const hit = doc.elementFromPoint(drag.x, drag.y) as HTMLElement | null;
-    const el = hit?.closest<HTMLElement>("[data-tree-id]");
-    const target = el && opts.getContainer()?.contains(el) ? el.dataset.treeId! : null;
-    const row = target ? tree.flatRows().find((r) => r.id === target) : undefined;
-    if (!el || !row || row.kind !== "node") return setDrop(null);
-    const rect = el.getBoundingClientRect();
-    const rel = (drag.y - rect.top) / Math.max(1, rect.height);
-    const insideOk = tree.canMoveTo(drag.sources, row.id, "inside");
-    const position: DropPosition = insideOk ? (rel < 0.25 ? "before" : rel > 0.75 ? "after" : "inside") : rel < 0.5 ? "before" : "after";
-    if (!tree.canMoveTo(drag.sources, row.id, position)) return setDrop(null);
-    setDrop({ target: row.id, position });
-    // Hovering "inside" a collapsed parent opens it after 600 ms.
-    if (position === "inside" && row.hasChildren && !row.expanded) {
-      if (drag.hoverId !== row.id) {
-        clearTimeout(drag.hoverTimer);
-        drag.hoverId = row.id;
-        drag.hoverTimer = setTimeout(() => drag && tree.expand(row.id), 600);
-      }
-    } else {
-      clearTimeout(drag.hoverTimer);
-      drag.hoverId = undefined;
-    }
+  const bufferUp = (e: PointerEvent) => {
+    if (pending && e.pointerId === pending.down[0].pointerId) pending.up = e;
   };
-
-  const autoScroll = () => {
-    if (!drag?.started) return;
-    const sp = scrollParent();
-    if (sp) {
-      const r = sp.getBoundingClientRect();
-      const edge = 20;
-      const dy = drag.y < r.top + edge ? -(r.top + edge - drag.y) : drag.y > r.bottom - edge ? drag.y - (r.bottom - edge) : 0;
-      if (dy) {
-        sp.scrollTop += Math.sign(dy) * Math.min(24, 4 + Math.abs(dy));
-        computeDrop(); // rows moved under a still pointer (and virtual rows recycled)
-      }
-    }
-    drag.raf = requestAnimationFrame(autoScroll);
+  const stopBuffering = () => {
+    if (typeof window === "undefined") return; // cleanup also runs after a server render
+    window.removeEventListener("pointermove", bufferMove, true);
+    window.removeEventListener("pointerup", bufferUp, true);
   };
-
-  const startDrag = () => {
-    if (!drag) return;
-    drag.started = true;
-    setDraggingIds(new Set(drag.sources));
-    computeDrop();
-    drag.raf = requestAnimationFrame(autoScroll);
+  const loadDnd = () => {
+    if (dnd || loadingDnd) return;
+    loadingDnd = true;
+    void import("./dnd.js").then((m) => {
+      if (disposed) return;
+      dnd = m.createDragAndDrop({ tree, getContainer: opts.getContainer, movingSources, doMove, focusRow, drop, setDrop, setDraggingIds });
+      const p = pending;
+      pending = undefined;
+      stopBuffering();
+      if (!p) return;
+      dnd.onPointerDown(...p.down); // installs dnd's own window listeners
+      const replay = (type: string, src: PointerEvent) =>
+        window.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: src.clientX, clientY: src.clientY, pointerId: src.pointerId, pointerType: src.pointerType, button: src.button, isPrimary: src.isPrimary }));
+      if (p.move) replay("pointermove", p.move);
+      if (p.up) replay("pointerup", p.up);
+    });
   };
-
-  const endDrag = (commit: boolean) => {
-    const d = drag;
-    drag = null;
-    if (!d) return;
-    clearTimeout(d.timer);
-    clearTimeout(d.hoverTimer);
-    if (d.raf) cancelAnimationFrame(d.raf);
-    window.removeEventListener("pointermove", onWindowMove, true);
-    window.removeEventListener("pointerup", onWindowUp, true);
-    window.removeEventListener("pointercancel", onWindowCancel, true);
-    window.removeEventListener("keydown", onWindowKey, true);
-    const target = untrack(drop);
-    setDrop(null);
-    setDraggingIds(new Set<string>());
-    if (d.started) {
-      suppressClick = true;
-      setTimeout(() => (suppressClick = false), 0);
-      if (commit && target) void doMove(d.sources, target.target, target.position).then(() => focusRow(d.rowId));
-    }
-  };
-  const onWindowMove = (e: PointerEvent) => {
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    const dist = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
-    if (!drag.started) {
-      if (drag.touch) {
-        if (dist > 8) endDrag(false); // a scroll gesture, not a long press
-        return;
-      }
-      if (dist < 5) return;
-      drag.x = e.clientX;
-      drag.y = e.clientY;
-      startDrag();
-      return;
-    }
-    e.preventDefault();
-    drag.x = e.clientX;
-    drag.y = e.clientY;
-    computeDrop();
-  };
-  const onWindowUp = (e: PointerEvent) => {
-    if (drag && e.pointerId === drag.pointerId) endDrag(true);
-  };
-  const onWindowCancel = (e: PointerEvent) => {
-    if (drag && e.pointerId === drag.pointerId) endDrag(false);
-  };
-  const onWindowKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape" && drag) {
-      e.preventDefault();
-      endDrag(false);
-    }
-  };
-  onCleanup(() => endDrag(false));
-
+  createEffect(() => {
+    if (tree.movesEnabled()) untrack(loadDnd);
+  });
+  onCleanup(() => {
+    disposed = true;
+    stopBuffering();
+    dnd?.dispose();
+  });
   const onPointerDown = (e: PointerEvent, row: FlatRow) => {
-    if (!tree.movesEnabled() || row.kind !== "node" || row.node.disabled || e.button !== 0) return;
-    if (tree.editingId() === row.id) return;
-    drag = { pointerId: e.pointerId, rowId: row.id, sources: movingSources(row.id), x: e.clientX, y: e.clientY, started: false, touch: e.pointerType === "touch" };
-    window.addEventListener("pointermove", onWindowMove, true);
-    window.addEventListener("pointerup", onWindowUp, true);
-    window.addEventListener("pointercancel", onWindowCancel, true);
-    window.addEventListener("keydown", onWindowKey, true);
-    if (drag.touch) drag.timer = setTimeout(startDrag, 400);
+    if (!tree.movesEnabled()) return;
+    if (dnd) return dnd.onPointerDown(e, row);
+    if (!pending) {
+      window.addEventListener("pointermove", bufferMove, true);
+      window.addEventListener("pointerup", bufferUp, true);
+    }
+    pending = { down: [e, row] };
+    loadDnd();
   };
 
   const mounted = createMemo(() => (opts.renderedRows?.() ?? tree.flatRows()).filter((r) => r.navigable));
@@ -339,7 +254,7 @@ export function createTreeView(opts: TreeViewOptions) {
   };
 
   const onRowClick = (event: MouseEvent, row: FlatRow) => {
-    if (suppressClick) return; // the click that ends a drag
+    if (dnd?.suppressClick()) return; // the click that ends a drag
     if (row.kind === "placeholder") {
       if (row.placeholder === "error") void lazy.retry?.(row.parentId); // null parentId = the roots
       return;

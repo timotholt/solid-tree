@@ -4,6 +4,20 @@ All notable changes are listed here. While on 0.x, a minor version may contain
 breaking changes; they are always marked **Breaking**. Defect IDs refer to
 [docs/ANALYSIS.md](docs/ANALYSIS.md).
 
+## 0.17.1 — 2026-10-21
+
+### Changed
+- Pointer drag-and-drop now loads on demand (a separate chunk, about 1.2 kB brotli),
+  only when `onMove` is set. Apps that never drag ship about 0.55 kB less up front:
+  `index` 13.00 → 12.45 kB, `/virtual` 13.67 → 13.13 kB, `/database` 15.47 → 14.94 kB,
+  `/headless` 9.12 → 8.56 kB (minified + brotli, peers excluded, initial import graph).
+  A drag that starts before the chunk has loaded is buffered and replayed.
+- Internal: the controller's rename, checkbox and move logic moved to
+  `controller/features/`, and pointer drag-and-drop to `view/headless/dnd.ts`. No API
+  or behavior change.
+- Removed the unused pre-0.17 tree-walk helpers from `compat/search.ts`.
+  `flattenVisible` is unchanged.
+
 ## 0.17.0 — 2026-10-21
 
 The 1.0 rebuild (docs/PLAN-rebuild.md, Phases 0–8). Upgrade notes: docs/guide/migration-0.x.md.

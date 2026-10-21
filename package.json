@@ -1,6 +1,6 @@
 {
   "name": "@timotholt/solid-tree",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "description": "Accessible, fast, fully featured tree view for SolidJS: virtualization, async/realtime data sources, Supabase locking, multi-select, rename, checkboxes, drag-and-drop, and a headless API.",
   "keywords": [
     "solid",

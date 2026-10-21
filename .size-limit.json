@@ -1,5 +1,18 @@
 [
   {
+    "name": "<Tree> only",
+    "path": "dist/index.js",
+    "import": "{ Tree }",
+    "ignore": [
+      "@electric-sql/pglite",
+      "@supabase/supabase-js",
+      "@tanstack/solid-query",
+      "@tanstack/solid-virtual",
+      "solid-js"
+    ],
+    "limit": "13.5 kB"
+  },
+  {
     "name": "core (.)",
     "path": "dist/index.js",
     "import": "*",

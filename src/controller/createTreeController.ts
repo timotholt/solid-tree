@@ -1,13 +1,9 @@
 import { DEV, createComputed, createEffect, createMemo, createSignal, getOwner, on, untrack, type Accessor } from "solid-js";
 import {
-  applyMove,
   buildIndex,
-  canMove as structurallyMovable,
-  checkStateOf,
   defaultAccessors,
   flatten,
   placeholderId,
-  toggleCheck,
   type CheckState,
   type DropPosition,
   type Row,
@@ -21,6 +17,9 @@ import { createSearch } from "../state/createSearch.js";
 import { localStoragePersistence, type PersistenceAdapter } from "../state/persistence.js";
 import type { FlatRow, TreeNodeData } from "../types.js";
 import type { CoreControllerOptions, DataInput, LazyHooks } from "./options.js";
+import { createRename } from "./features/rename.js";
+import { createChecks } from "./features/checks.js";
+import { createMoves } from "./features/moves.js";
 
 export interface TreeControllerOptions<T extends TreeNodeData = TreeNodeData> extends CoreControllerOptions<T>, LazyHooks {
   /** The tree. A plain array or an accessor (reactive). */
@@ -268,77 +267,10 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
 
   let scroller: ((id: string) => void) | null = null;
 
-  // ── rename (SPEC-features 7.2) ───────────────────────────────────────────────
-  const [editingId, setEditingId] = createSignal<string | null>(null);
-  const [pending, setPending] = createSignal<ReadonlyMap<string, string>>(new Map());
-  const canRenameNode = (id: string) => {
-    const node = untrack(index).get(id);
-    if (!node || node.disabled || !opts.onRename) return false;
-    return !opts.canRename || opts.canRename(node);
-  };
-  const commitEditing = async (value: string) => {
-    const id = untrack(editingId);
-    if (id === null) return;
-    setEditingId(null);
-    const node = untrack(index).get(id);
-    const next = value.trim();
-    if (!node || !next || next === node.label || !opts.onRename) return;
-    setPending((m) => new Map(m).set(id, next));
-    try {
-      const ok = await opts.onRename(node, next);
-      if (ok === false) opts.onRenameError?.(node, new Error("rename rejected"));
-      else if (typeof ok === "string") opts.onRenameError?.(node, new Error(ok));
-    } catch (e) {
-      opts.onRenameError?.(node, e);
-    } finally {
-      // The data wins once the result is in (the app updated it, or did not).
-      setPending((m) => {
-        const copy = new Map(m);
-        copy.delete(id);
-        return copy;
-      });
-    }
-  };
-
-  // ── checkboxes (SPEC-features 7.3) ───────────────────────────────────────────
-  const [ownChecked, setOwnChecked] = createSignal<ReadonlySet<string>>(new Set());
-  const checkedControlled = isProvided(opts, "checkedIds");
-  const checkedIds = createMemo<ReadonlySet<string>>(() => (checkedControlled ? new Set(access(opts.checkedIds) ?? []) : ownChecked()));
-  const isCheckable = (id: string) => {
-    const node = index().get(id);
-    if (!node || node.disabled || !opts.checkable) return false;
-    return typeof opts.checkable === "function" ? opts.checkable(node) : true;
-  };
-  const isLoaded = (id: string) => opts.isLoaded?.(id) ?? true;
-  // Disabled or non-checkable nodes take no part in cascade (never toggled, never counted).
-  const isExcluded = (id: string) => !untrack(() => isCheckable(id));
-
-  // ── moves (SPEC-features 7.4) ────────────────────────────────────────────────
-  const canMoveTo = (sources: string[], target: string, position: DropPosition) => {
-    if (!opts.onMove) return false;
-    const idx = untrack(index);
-    if (!structurallyMovable(idx, sources, target, position)) return false;
-    if (sources.some((s) => idx.get(s)?.disabled)) return false;
-    return !opts.canMove || opts.canMove(sources, target, position);
-  };
-  const move = async (sources: string[], target: string, position: DropPosition) => {
-    if (!canMoveTo(sources, target, position)) return false;
-    if (opts.optimisticMoves !== false) {
-      const idx = untrack(index);
-      setMoveOverlay(
-        applyMove(untrack(data) as T[], idx, defaultAccessors<T>(), (node, children) => ({ ...node, children }) as T, sources, target, position)
-      );
-      if (position === "inside") expansion.set(target, true);
-    }
-    try {
-      const ok = await opts.onMove!(sources, target, position);
-      return ok !== false;
-    } catch {
-      return false;
-    } finally {
-      setMoveOverlay(null);
-    }
-  };
+  // Features (SPEC-features): each in its own module under ./features/.
+  const rename = createRename(index, opts);
+  const checks = createChecks(index, opts);
+  const moves = createMoves({ index, data, setOverlay: setMoveOverlay, openNode: (id) => expansion.set(id, true), opts });
 
   return {
     nodes: data,
@@ -386,29 +318,9 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
       const view = search.view();
       return !!view && view.mode === "dim" && !view.isKept(id);
     },
-    editingId,
-    canRenameNode,
-    startEditing: (id) => {
-      if (canRenameNode(id)) setEditingId(id);
-    },
-    cancelEditing: () => setEditingId(null),
-    commitEditing,
-    pendingLabel: (id) => pending().get(id),
-    renameOnBlur: () => opts.renameOnBlur ?? "commit",
-
-    isCheckable,
-    checkState: (id) => checkStateOf(index(), checkedIds(), id, opts.checkMode ?? "cascade", isLoaded, isExcluded),
-    toggleChecked: (id) => {
-      if (!untrack(() => isCheckable(id))) return;
-      const next = toggleCheck(untrack(index), untrack(checkedIds), id, opts.checkMode ?? "cascade", isLoaded, isExcluded);
-      if (!checkedControlled) setOwnChecked(next);
-      opts.onCheckedChange?.([...next]);
-    },
-    checkedIds,
-
-    movesEnabled: () => !!opts.onMove,
-    canMoveTo,
-    move,
+    ...rename,
+    ...checks,
+    ...moves,
 
     _registerScroller: (fn) => {
       scroller = fn;
