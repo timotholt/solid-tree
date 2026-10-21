@@ -238,6 +238,21 @@ Exit: A1–A3, B9–B11, D5, G1, G8 closed (G2 → P4). Contracts documented in 
 
 ### Phase 4 — Views, headless layer, accessibility (parallel with 5 and 6)
 
+**Done 2026-10-20 (local).**
+- Closed B1, E1–E7, G2 and C6 (`_ctxState`). G6 was resolved differently than planned.
+- axe found three problems the plan had not predicted:
+  - Count and dim contrast were below WCAG AA. The defaults were raised.
+  - The G6 plan (actions beside the treeitem) violates `aria-required-children`. The
+    actions now live inside the treeitem, aria-hidden and out of the tab order,
+    documented as pointer shortcuts.
+  - Empty and loading states were checked and pass.
+- Harness bug found: `@solidjs/testing-library` did not clean up between tests (Vitest
+  globals are off), so trees leaked across tests. Fixed in the shared setup.
+- D9 decision: inline styles stay token-driven (overridable through CSS variables). Full
+  control comes from `/headless`, not from moving cosmetics into a required stylesheet,
+  which would break consumers who do not import theme.css.
+- Not done: the manual screen-reader pass (docs/ACCESSIBILITY.md checklist).
+
 Owns **every `*.tsx` file**, including `DatabaseTree.tsx` and `SupabaseTree.tsx`.
 
 - Headless `getRootProps()`/`getItemProps(row)`/`getGroupProps()`. `TreeRow` is

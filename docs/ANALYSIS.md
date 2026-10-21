@@ -7,6 +7,10 @@ plan's phases say which IDs they close. IDs are never reused.
 Evidence key: **run** = reproduced by executing code against v0.16.0. **read** = high
 confidence from reading the code; the Phase 0 characterization tests confirm or retract it.
 
+**Phase 4 status (2026-10-20):** also closed: B1, C6, E1–E7, G2, G6 (as documented
+pointer-only actions). No ledger defect is open. Not yet done: the screen-reader checks and
+the Docker integration job.
+
 **Phase 6 status (2026-10-20):** also closed: B3, B6 (source), B8, D10, D11, D12, G4, G7.
 Still open: B1, E1, E5, G2 (Phase 4 views); G6 (Phase 4).
 

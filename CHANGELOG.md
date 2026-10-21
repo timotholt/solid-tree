@@ -6,6 +6,39 @@ breaking changes; they are always marked **Breaking**. Defect IDs refer to
 
 ## Unreleased
 
+### Changed (phase 4: views + accessibility)
+- **Breaking (markup):** rows are rendered flat. Each row is a `.solid-tree-row` wrapper
+  (`role="none"`) around a `.solid-tree-item` treeitem. `<Tree>` no longer nests DOM by
+  depth; ARIA level/posinset/setsize describe the hierarchy (E1). State attributes
+  (`data-selected`, `data-depth`, `data-variant`, `data-dimmed`, `data-has-children`)
+  are on both elements, so existing CSS hooks keep working.
+- **Breaking:** the actions slot is `aria-hidden`, and its controls are out of the tab
+  order. Actions are pointer shortcuts; offer the same commands by keyboard (G6, see
+  docs/ACCESSIBILITY.md).
+- **Breaking (look):** default `--tree-count-opacity` is 0.6 (was 0.5) and
+  `--tree-dim-opacity` is 0.55 (was 0.38), to meet WCAG AA contrast (found by axe).
+- Rows keep their identity across searches and data changes; they are no longer
+  remounted on every keystroke (G2). A reused virtual slot switches correctly between
+  node, separator and placeholder rows (B1).
+- Focus: the Tab stop remembers the focused row even when it is scrolled out of a virtual
+  window (E5). Clicking a visible row no longer scrolls (E6). `:focus-visible` outline (E4).
+
+### Added (phase 4)
+- `@timotholt/solid-tree/headless`: `createTreeView` (ARIA, focus and input as prop
+  getters for any markup) plus the framework-free core.
+- Double-click activates. Ctrl/Cmd-click toggles, Shift-click extends, Ctrl/Cmd+A
+  selects all and Shift+Arrow extends, in `selectionMode="multiple"`.
+- `aria-busy` on loading branches and a polite live region announcing search results
+  (E2). Error placeholder rows retry on click.
+- `renderLeading` slot (before the icon), `dir="rtl"`, `scrollToId` wired in both views,
+  `controller.matchCount()`, `controller.highlightQuery()`, `controller.isDimmed()`.
+- theme.css: `data-density="compact"`, dark mode (`prefers-color-scheme` or
+  `data-theme`), focus and error tokens.
+- docs/ACCESSIBILITY.md: semantics, keyboard map, actions guidance, manual checklist.
+
+### Removed (phase 4)
+- `TreeController._ctxState` (internal; replaced by public accessors) (C6).
+
 ### Changed (phase 6: Supabase tier)
 - **Breaking:** the lock heartbeat now beats by default even while the window is
   unfocused (`heartbeatPolicy: "always"`). `"focused"` restores the old behavior, where

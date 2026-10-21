@@ -5,7 +5,6 @@ import { createSignal } from "solid-js";
 import { VirtualTree } from "../../src/view/VirtualTree.js";
 import { createTreeController, type TreeController } from "../../src/controller/index.js";
 import type { TreeNodeData } from "../../src/types.js";
-import { knownDefect } from "../support/known-defect.js";
 import { n, wide } from "../support/fixtures.js";
 
 const frame = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
@@ -106,7 +105,7 @@ describe("<VirtualTree>", () => {
 
 // ── Known defects ────────────────────────────────────────────────────────────────
 
-knownDefect("B1", "a reused slot switches correctly between divider and row", async () => {
+it("regression(B1): a reused slot switches correctly between divider and row", async () => {
   const [data, setData] = createSignal<TreeNodeData[]>([n("a"), n("d", undefined, { isDivider: true, label: "" }), n("b")]);
   let tree!: TreeController;
   const { container } = render(() => {
@@ -119,19 +118,26 @@ knownDefect("B1", "a reused slot switches correctly between divider and row", as
   expect(rowsIn(container).map((r) => r.dataset.treeId)).toEqual(["a", "x", "b"]);
 });
 
-knownDefect("E5", "Tab returns to the focused row after it scrolled out of view", async () => {
+// Rewritten for the new design (PLAN §5.3): when the remembered row is scrolled out of
+// the virtual window, the tree root is the Tab stop and hands focus back to that row.
+it("regression(E5): Tab returns to the focused row after it scrolled out of view", async () => {
   const { container, tree } = mount(wide(10, 3));
   tree.expandAll();
   await settle();
+  const before = document.createElement("button");
+  document.body.prepend(before);
   const target = rowsIn(container)[3];
   const id = target.dataset.treeId;
   target.focus();
-  target.blur();
   await settle(); // let focusRow's scrollToIndex finish re-aligning before we scroll away
+  before.focus();
   container.querySelector<HTMLElement>(".solid-tree-viewport")!.scrollTop = 8000;
   await settle();
-  const tabbable = rowsIn(container).find((r) => r.tabIndex === 0);
-  expect(tabbable?.dataset.treeId ?? "(not rendered)").toBe(id);
+  expect(rowsIn(container).some((r) => r.dataset.treeId === id)).toBe(false); // really scrolled out
+  await userEvent.tab();
+  await settle();
+  expect((document.activeElement as HTMLElement).dataset.treeId).toBe(id);
+  before.remove();
 });
 
 it("replacing rows 1:1 (same count) renders the new rows (G3 retracted)", async () => {
@@ -145,4 +151,32 @@ it("replacing rows 1:1 (same count) renders the new rows (G3 retracted)", async 
   setData([n("x"), n("y"), n("z")]);
   await settle();
   expect(rowsIn(container).map((r) => r.dataset.treeId)).toEqual(["x", "y", "z"]);
+});
+
+describe("<VirtualTree> phase 4", () => {
+  it("clicking a fully visible row does not scroll (E6)", async () => {
+    const { container, tree } = mount(wide(10, 3));
+    tree.expandAll();
+    await settle();
+    const vp = container.querySelector<HTMLElement>(".solid-tree-viewport")!;
+    vp.scrollTop = 400;
+    await settle();
+    const before = vp.scrollTop;
+    const row = rowsIn(container).find((r) => {
+      const b = r.getBoundingClientRect();
+      const v = vp.getBoundingClientRect();
+      return b.top >= v.top && b.bottom <= v.bottom;
+    })!;
+    row.click();
+    await settle();
+    expect(vp.scrollTop).toBe(before);
+  });
+
+  it("scrollToId reveals and scrolls a far row into the window", async () => {
+    const { container, tree } = mount(wide(10, 3));
+    tree.scrollToId("n.9.9.9");
+    await settle();
+    await settle();
+    expect(rowsIn(container).some((r) => r.dataset.treeId === "n.9.9.9")).toBe(true);
+  });
 });

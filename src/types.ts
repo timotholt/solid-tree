@@ -61,8 +61,13 @@ export interface TreeProps {
   onToggle?: (id: string, expanded: boolean) => void;
   /** Row-body click behavior. Default: `"finder"` (the original behavior). */
   rowClickPolicy?: TreeRowClickPolicy;
+  /** Right-aligned slot beside each row (outside the treeitem, so its controls stay separate tab stops). */
   renderActionNode?: (node: TreeNodeData) => JSX.Element;
   renderLabel?: (node: TreeNodeData) => JSX.Element;
+  /** Slot before the icon: checkboxes, drag handles, status dots. */
+  renderLeading?: (row: FlatRow) => JSX.Element;
+  /** Text direction. "rtl" also swaps ArrowLeft/ArrowRight. */
+  dir?: "ltr" | "rtl";
   basePadding?: number;
   indentStep?: number;
 

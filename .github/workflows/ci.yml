@@ -76,3 +76,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run bench
+
+  solid-next:
+    name: solid-js@next (nightly, informational)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    continue-on-error: true # Solid 2 is a non-goal for 1.0; this tracks the distance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save solid-js@next
+      - run: npx playwright install --with-deps chromium
+      - run: npm test

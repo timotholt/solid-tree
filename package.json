@@ -70,6 +70,17 @@
         "default": "./dist/testing.js"
       }
     },
+    "./headless": {
+      "solid": "./src/headless.ts",
+      "node": {
+        "types": "./dist/headless.d.ts",
+        "default": "./dist/server/headless.js"
+      },
+      "import": {
+        "types": "./dist/headless.d.ts",
+        "default": "./dist/headless.js"
+      }
+    },
     "./theme.css": "./src/theme.css"
   },
   "scripts": {
@@ -117,6 +128,7 @@
     "@tanstack/solid-virtual": "^3.13.48",
     "@vitest/browser-playwright": "^5.0.5",
     "@vitest/coverage-v8": "^5.0.5",
+    "axe-core": "^4.14.0",
     "eslint": "^10.13.0",
     "fast-check": "^4.10.2",
     "happy-dom": "^21.0.4",

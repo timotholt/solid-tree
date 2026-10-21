@@ -13,7 +13,6 @@ import { createExpansion } from "../state/createExpansion.js";
 import { createSelection } from "../state/createSelection.js";
 import { createSearch } from "../state/createSearch.js";
 import { localStoragePersistence, type PersistenceAdapter } from "../state/persistence.js";
-import type { TreeCtx } from "../view/context.js";
 import type { FlatRow, TreeNodeData } from "../types.js";
 import type { CoreControllerOptions, DataInput, LazyHooks } from "./options.js";
 
@@ -46,8 +45,11 @@ export interface TreeController<T extends TreeNodeData = TreeNodeData> {
   /** Primary selected id (single mode: the selection). */
   selectedId: Accessor<string | null>;
   selectedIds: Accessor<ReadonlySet<string>>;
+  selectionMode: Accessor<"single" | "multiple">;
   query: Accessor<string>;
   searching: Accessor<boolean>;
+  /** Number of search matches (0 when not searching). */
+  matchCount: Accessor<number>;
   noMatches: Accessor<boolean>;
 
   expand(id: string): void;
@@ -68,8 +70,10 @@ export interface TreeController<T extends TreeNodeData = TreeNodeData> {
   /** Reveal `id` (expand its ancestors) and ask the view to scroll it into view. */
   scrollToId(id: string): void;
 
-  /** View-internal. */
-  _ctxState: Omit<TreeCtx, "renderLabel" | "renderActionNode" | "rowClickPolicy" | "accessibleTree" | "tabbableId" | "focusRow" | "onRowKeyDown">;
+  /** While searching with the default matcher: the query to highlight; else null. */
+  highlightQuery: Accessor<string | null>;
+  /** Dim-mode search: true for rows that do not match. */
+  isDimmed(id: string): boolean;
   /** View-internal: the view registers how to scroll a row into view. */
   _registerScroller(fn: ((id: string) => void) | null): void;
 }
@@ -229,18 +233,6 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
 
   let scroller: ((id: string) => void) | null = null;
 
-  const ctxState: TreeController<T>["_ctxState"] = {
-    expanded: expandedRecord,
-    selectedId: selection.id,
-    highlightQuery: () => (search.view() && !opts.matcher ? search.query() : null),
-    isDimmed: (id) => {
-      const view = search.view();
-      return !!view && view.mode === "dim" && !view.isKept(id);
-    },
-    onToggle: (id) => setOpen(id, !untrack(() => isExpanded(id))),
-    onSelect: (node) => selection.apply({ type: "select", id: node.id }),
-  };
-
   return {
     nodes: data,
     displayNodes: createMemo(() => displayTree(data(), index(), search.view())),
@@ -250,8 +242,10 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
     isExpanded,
     selectedId: selection.id,
     selectedIds: selection.ids,
+    selectionMode: () => opts.selectionMode ?? "single",
     query: search.query,
     searching: () => search.view() !== null,
+    matchCount: () => search.view()?.matches.size ?? 0,
     noMatches: () => {
       const view = search.view();
       return !!view && view.mode === "prune" && view.matches.size === 0;
@@ -280,7 +274,11 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
       scroller?.(id);
     },
 
-    _ctxState: ctxState,
+    highlightQuery: () => (search.view() && !opts.matcher ? search.query() : null),
+    isDimmed: (id) => {
+      const view = search.view();
+      return !!view && view.mode === "dim" && !view.isKept(id);
+    },
     _registerScroller: (fn) => {
       scroller = fn;
     },

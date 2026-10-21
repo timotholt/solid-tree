@@ -1,13 +1,12 @@
-import { Component, Show, JSX } from "solid-js";
+import { Component, Match, Show, Switch, createMemo, onCleanup, type JSX, type Accessor } from "solid-js";
 import { Chevron } from "./Chevron.js";
 import { tok } from "./tokens.js";
 import { useTree } from "./context.js";
-import { TreeNodeData } from "../types.js";
-import { shouldToggleFromRowClick } from "./navigation.js";
+import type { FlatRow } from "../types.js";
 
-// Built-in highlight for the DEFAULT matcher path — wraps the matched substring
-// of the label in <mark>. Skipped when a custom matcher or renderLabel is used
-// (Tree can't know what a custom matcher matched on).
+// Built-in highlight for the DEFAULT matcher path — wraps the matched substring of the
+// label in <mark>. Skipped when a custom matcher or renderLabel is used (the tree can't
+// know what a custom matcher matched on).
 const HighlightedLabel: Component<{ label: string; query: string | null }> = (props) => (
   <Show when={props.query} fallback={<>{props.label}</>}>
     {(() => {
@@ -26,154 +25,198 @@ const HighlightedLabel: Component<{ label: string; query: string | null }> = (pr
   </Show>
 );
 
-// A single row's interior (no child recursion) — shared by the recursive
-// <Tree> (via TreeBranch) and, later, the flat <VirtualTree>.
-export const TreeRow: Component<{
-  node: TreeNodeData;
-  depth: number;
-  /** From a flat row: includes lazy branches whose children are not loaded yet. */
-  hasChildren?: boolean;
-}> = (props) => {
-  const ctx = useTree();
+/**
+ * One visible row, rendered from a flat-row accessor. The row's KIND is reactive, so a
+ * reused virtual slot switches correctly between node, separator and placeholder
+ * (ANALYSIS B1).
+ *
+ * Markup: a `role="none"` wrapper holding the treeitem. The actions slot lives inside the
+ * treeitem (a tree may only own treeitems), hidden from assistive tech and out of the tab
+ * order: actions are pointer shortcuts, and the app must offer the same commands by
+ * keyboard (onKeyDown, onActivate, a menu). See docs/ACCESSIBILITY.md (ANALYSIS G6).
+ */
+export const TreeRow: Component<{ row: Accessor<FlatRow | undefined> }> = (props) => {
+  return (
+    <Show when={props.row()}>
+      {(row) => (
+        <Switch>
+          <Match when={row().kind === "separator"}>
+            <div
+              class="solid-tree-divider"
+              role="none"
+              aria-hidden="true"
+              style={`height: ${tok("divider-height")}; background: ${tok("divider-color")}; margin: ${tok("divider-margin")} 0;`}
+            />
+          </Match>
+          <Match when={row().kind === "placeholder"}>
+            <PlaceholderRow row={row} />
+          </Match>
+          <Match when={row().kind === "node"}>
+            <NodeRow row={row} />
+          </Match>
+        </Switch>
+      )}
+    </Show>
+  );
+};
 
-  if (props.node.isDivider) {
-    return (
-      <div
-        class="solid-tree-divider"
-        role={ctx.accessibleTree ? "presentation" : undefined}
-        aria-hidden={ctx.accessibleTree ? "true" : undefined}
-        style={`height: ${tok("divider-height")}; background: ${tok("divider-color")}; margin: ${tok("divider-margin")} 0;`}
-      />
-    );
+/** Keep everything inside the (aria-hidden) actions slot out of the tab order. */
+const FOCUSABLE = "a[href],button,input,select,textarea,[tabindex]";
+function untabbable(el: HTMLElement) {
+  const apply = () => el.querySelectorAll<HTMLElement>(FOCUSABLE).forEach((f) => f.setAttribute("tabindex", "-1"));
+  queueMicrotask(apply);
+  if (typeof MutationObserver !== "undefined") {
+    const mo = new MutationObserver(apply);
+    mo.observe(el, { childList: true, subtree: true });
+    onCleanup(() => mo.disconnect());
   }
+}
 
-  const isAction = () => props.node.variant === "action";
-  const hasChildren = () => props.hasChildren ?? (!!props.node.children && props.node.children.length > 0);
-  const isExpanded = () => ctx.expanded()[props.node.id] || false;
-  const isSelected = () => ctx.selectedId() === props.node.id;
-  const dimmed = () => ctx.isDimmed(props.node.id);
+const indent = (isAction: boolean) =>
+  isAction ? "0" : `calc(${tok("indent-base")} + var(--tree-depth) * ${tok("indent-step")})`;
 
-  const handleToggle = (e: Event) => {
-    e.stopPropagation();
-    ctx.onToggle(props.node.id);
-  };
+const PlaceholderRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
+  const ctx = useTree();
+  const isError = () => props.row().placeholder === "error";
+  return (
+    <div class="solid-tree-row" role="none" data-placeholder={props.row().placeholder} style={{ display: "flex", "--tree-depth": String(props.row().depth) }}>
+      <div
+        class="solid-tree-item"
+        {...ctx.view.getItemProps(props.row)}
+        style={{
+          display: "flex",
+          flex: "1",
+          "align-items": "center",
+          "padding-left": `calc(${indent(false)} + ${tok("spacer-width")})`,
+          "font-size": tok("font-size"),
+          cursor: isError() ? "pointer" : "default",
+        }}
+      >
+        <Show
+          when={ctx.renderLabel}
+          fallback={
+            <span class={isError() ? "solid-tree-error" : "solid-tree-loading"} style="opacity:.6;font-style:italic">
+              {isError() ? "Failed to load — click to retry" : props.row().node.label}
+            </span>
+          }
+        >
+          {ctx.renderLabel!(props.row().node)}
+        </Show>
+      </div>
+    </div>
+  );
+};
+
+const NodeRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
+  const ctx = useTree();
+  const r = props.row;
+  // Rows are rebuilt on every flatten; memoizing the node keeps label renders (and any
+  // component the consumer renders in a slot) from re-running when only the row object
+  // changed (ANALYSIS G2).
+  const node = createMemo(() => r().node);
+  const isAction = () => node().variant === "action";
+  const dimmed = () => ctx.tree.isDimmed(r().id);
+  const selected = () => ctx.tree.selectedIds().has(r().id);
 
   return (
     <div
       class="solid-tree-row"
-      role={ctx.accessibleTree ? "treeitem" : undefined}
-      aria-level={ctx.accessibleTree ? props.depth + 1 : undefined}
-      aria-selected={ctx.accessibleTree ? isSelected() : undefined}
-      aria-expanded={ctx.accessibleTree && hasChildren() ? isExpanded() : undefined}
-      tabIndex={ctx.accessibleTree ? (ctx.tabbableId() === props.node.id ? 0 : -1) : undefined}
-      data-tree-id={ctx.accessibleTree ? props.node.id : undefined}
-      data-depth={props.depth}
-      data-variant={props.node.variant ?? "default"}
-      data-selected={isSelected() ? "" : undefined}
-      data-has-children={hasChildren() ? "" : undefined}
+      role="none"
+      data-depth={r().depth}
+      data-variant={node().variant ?? "default"}
+      data-selected={selected() ? "" : undefined}
+      data-has-children={r().hasChildren ? "" : undefined}
       data-dimmed={dimmed() ? "" : undefined}
-      onClick={(e) => {
-        ctx.focusRow(props.node.id);
-        // Tree-row click semantics (match VS Code / Finder):
-        //   - unexpanded           → select + expand
-        //   - expanded, unselected → select only (don't collapse)
-        //   - expanded, selected   → toggle (collapse)
-        // The chevron itself always toggles via its own handler, so
-        // users can still collapse without selecting.
-        const wasSelected = isSelected();
-        const wasExpanded = isExpanded();
-        ctx.onSelect(props.node);
-        if (shouldToggleFromRowClick(ctx.rowClickPolicy, hasChildren(), wasSelected, wasExpanded)) handleToggle(e);
-      }}
-      onFocus={(event) => {
-        if (event.target === event.currentTarget) ctx.focusRow(props.node.id);
-      }}
-      onKeyDown={(event) => ctx.onRowKeyDown(event, props.node)}
+      data-disabled={node().disabled ? "" : undefined}
       style={{
         display: "flex",
         "align-items": tok("row-align-items") as JSX.CSSProperties["align-items"],
-        "--tree-depth": String(props.depth),
-        "padding-left": isAction()
-          ? "0"
-          : `calc(${tok("indent-base")} + var(--tree-depth) * ${tok("indent-step")})`,
-        "justify-content": isAction() ? "center" : "flex-start",
-        opacity: isAction() ? tok("action-opacity") : dimmed() ? tok("dim-opacity") : "1",
-        "font-size": tok("font-size"),
-        "user-select": tok("user-select") as JSX.CSSProperties["user-select"],
-        "-webkit-user-select": tok("user-select") as JSX.CSSProperties["-webkit-user-select"],
-        cursor: "pointer",
+        "--tree-depth": String(r().depth),
+        opacity: isAction() ? tok("action-opacity") : dimmed() ? tok("dim-opacity") : node().disabled ? tok("dim-opacity") : "1",
       }}
     >
       <div
-        class="solid-tree-row-content"
+        class="solid-tree-item"
+        {...ctx.view.getItemProps(r)}
+        data-depth={r().depth}
+        data-variant={node().variant ?? "default"}
+        data-has-children={r().hasChildren ? "" : undefined}
+        data-dimmed={dimmed() ? "" : undefined}
         style={{
           display: "flex",
-          "align-items": tok("row-align-items") as JSX.CSSProperties["align-items"],
           flex: isAction() ? "initial" : "1",
-          overflow: "hidden",
+          "min-width": "0",
+          margin: isAction() ? "0 auto" : undefined,
+          "align-items": tok("row-align-items") as JSX.CSSProperties["align-items"],
+          "padding-left": indent(isAction()),
+          "justify-content": isAction() ? "center" : "flex-start",
+          "font-size": tok("font-size"),
+          "user-select": tok("user-select") as JSX.CSSProperties["user-select"],
+          "-webkit-user-select": tok("user-select") as JSX.CSSProperties["-webkit-user-select"],
+          cursor: node().disabled ? "default" : "pointer",
         }}
       >
-        <Show when={hasChildren() && !isAction()}>
-          <Chevron
-            expanded={isExpanded()}
-            ariaHidden={ctx.accessibleTree}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggle(e);
-            }}
-            style={{ "margin-right": tok("chevron-gap") }}
-          />
-        </Show>
-        <Show when={!hasChildren() && !isAction()}>
-          <span class="solid-tree-spacer" style={`display:inline-block; width:${tok("spacer-width")};`} />
-        </Show>
-
-        <Show when={props.node.iconLeft}>
-          <span class="solid-tree-icon-left" style={`flex-shrink: 0; margin-right: ${tok("icon-left-gap")};`}>
-            {props.node.iconLeft}
-          </span>
-        </Show>
-
-        <span
-          class="solid-tree-label"
-          style={`flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: ${tok("label-white-space")}; display: flex; align-items: center; ${props.depth === 0 && hasChildren() ? `font-weight:${tok("group-weight")};` : ""}`}
+        <div
+          class="solid-tree-row-content"
+          style={{
+            display: "flex",
+            "align-items": tok("row-align-items") as JSX.CSSProperties["align-items"],
+            flex: isAction() ? "initial" : "1",
+            overflow: "hidden",
+          }}
         >
-          <span style={`overflow: hidden; text-overflow: ellipsis; white-space: ${tok("label-white-space")};`}>
-            <Show
-              when={ctx.renderLabel}
-              fallback={<HighlightedLabel label={props.node.label} query={ctx.highlightQuery()} />}
-            >
-              {ctx.renderLabel!(props.node)}
-            </Show>
-          </span>
-          <Show when={props.node.count !== undefined}>
-            <span
-              class="solid-tree-count"
-              style={`opacity: ${tok("count-opacity")}; margin-left: ${tok("count-gap")}; font-weight: ${tok("count-weight")}; flex-shrink: 0;`}
-            >
-              ({props.node.count})
+          <Show when={r().hasChildren && !isAction()}>
+            <Chevron expanded={r().expanded} ariaHidden onClick={ctx.view.getToggleProps(r).onClick as (e: MouseEvent) => void} style={{ "margin-right": tok("chevron-gap") }} />
+          </Show>
+          <Show when={!r().hasChildren && !isAction()}>
+            <span class="solid-tree-spacer" style={`display:inline-block; width:${tok("spacer-width")};`} />
+          </Show>
+
+          <Show when={ctx.renderLeading}>{ctx.renderLeading!(r())}</Show>
+
+          <Show when={node().iconLeft}>
+            <span class="solid-tree-icon-left" style={`flex-shrink: 0; margin-right: ${tok("icon-left-gap")};`}>
+              {node().iconLeft}
             </span>
           </Show>
-        </span>
-        <Show when={props.node.iconRight}>
+
           <span
-            class="solid-tree-icon-right"
-            style={`margin-left: ${tok("icon-right-gap")}; flex-shrink: 0; font-size: ${tok("icon-right-size")};`}
+            class="solid-tree-label"
+            style={`flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: ${tok("label-white-space")}; display: flex; align-items: center; ${r().depth === 0 && r().hasChildren ? `font-weight:${tok("group-weight")};` : ""}`}
           >
-            {props.node.iconRight}
+            <span style={`overflow: hidden; text-overflow: ellipsis; white-space: ${tok("label-white-space")};`}>
+              <Show when={ctx.renderLabel} fallback={<HighlightedLabel label={node().label} query={ctx.tree.highlightQuery()} />}>
+                {ctx.renderLabel!(node())}
+              </Show>
+            </span>
+            <Show when={node().count !== undefined}>
+              <span
+                class="solid-tree-count"
+                style={`opacity: ${tok("count-opacity")}; margin-left: ${tok("count-gap")}; font-weight: ${tok("count-weight")}; flex-shrink: 0;`}
+              >
+                ({node().count})
+              </span>
+            </Show>
           </span>
+          <Show when={node().iconRight}>
+            <span class="solid-tree-icon-right" style={`margin-left: ${tok("icon-right-gap")}; flex-shrink: 0; font-size: ${tok("icon-right-size")};`}>
+              {node().iconRight}
+            </span>
+          </Show>
+        </div>
+        <Show when={ctx.renderActionNode}>
+          <div
+            class="solid-tree-action"
+            aria-hidden="true"
+            ref={untabbable}
+            style={`display:flex; align-items:center; margin-left:${tok("action-gap")};`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {ctx.renderActionNode!(node())}
+          </div>
         </Show>
       </div>
 
-      <Show when={ctx.renderActionNode}>
-        <div
-          class="solid-tree-action"
-          style={`display:flex; align-items:center; margin-left:${tok("action-gap")};`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {ctx.renderActionNode!(props.node)}
-        </div>
-      </Show>
     </div>
   );
 };

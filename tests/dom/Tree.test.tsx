@@ -4,7 +4,6 @@ import { createSignal, onCleanup } from "solid-js";
 import { Tree } from "../../src/view/Tree.js";
 import { createTreeController } from "../../src/controller/index.js";
 import type { TreeNodeData, TreeRowClickPolicy } from "../../src/types.js";
-import { knownDefect } from "../support/known-defect.js";
 import { flush } from "../support/root.js";
 import { expectConsole } from "../support/console.js";
 import { n, produce } from "../support/fixtures.js";
@@ -48,7 +47,8 @@ describe("<Tree> structure and ARIA", () => {
     const data = [n("a"), n("d", undefined, { isDivider: true, label: "" }), n("b")];
     const { container } = render(() => <Tree data={data} onSelect={() => {}} />);
     expect(visibleIds(container)).toEqual(["a", "b"]);
-    expect(container.querySelector(".solid-tree-divider")!.getAttribute("role")).toBe("presentation");
+    // role "none" is the ARIA 1.1+ synonym of "presentation".
+    expect(container.querySelector(".solid-tree-divider")!.getAttribute("role")).toBe("none");
   });
 
   it("renders count, icons and the action variant", () => {
@@ -212,7 +212,7 @@ it("regression(G1): changing the matcher prop at runtime takes effect", () => {
   expect(visibleIds(container)).toContain("blue");
 });
 
-knownDefect("G2", "rows are not remounted on every search keystroke", () => {
+it("regression(G2): rows are not remounted on every search keystroke", () => {
   let mounts = 0;
   const [q, setQ] = createSignal("b");
   render(() => (
@@ -233,7 +233,7 @@ knownDefect("G2", "rows are not remounted on every search keystroke", () => {
   expect(mounts - before).toBe(0);
 });
 
-knownDefect("E1", "treeitems expose aria-setsize and aria-posinset", () => {
+it("regression(E1): treeitems expose aria-setsize and aria-posinset", () => {
   const { container } = render(() => <Tree data={produce()} onSelect={() => {}} />);
   const veg = item(container, "veg");
   expect(veg.getAttribute("aria-posinset")).toBe("2");

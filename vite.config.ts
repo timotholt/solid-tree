@@ -10,13 +10,14 @@ export default defineConfig({
   plugins: [solid()],
   build: {
     lib: {
-      // Multi-entry: base (.) + /virtual + /database + /supabase + /testing subpaths.
+      // Multi-entry: base (.) + /virtual + /database + /supabase + /testing + /headless subpaths.
       entry: {
         index: resolve(__dirname, "src/index.tsx"),
         virtual: resolve(__dirname, "src/virtual.tsx"),
         database: resolve(__dirname, "src/database.tsx"),
         supabase: resolve(__dirname, "src/supabase.tsx"),
         testing: resolve(__dirname, "src/testing.ts"),
+        headless: resolve(__dirname, "src/headless.ts"),
       },
       formats: ["es"],
     },

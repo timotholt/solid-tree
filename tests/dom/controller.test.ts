@@ -169,14 +169,14 @@ describe("search", () => {
     const t = make({ searchQuery: () => "carrot", filterMode: "dim" });
     expect(t.displayNodes().map((x) => x.id)).toEqual(["fruit", "veg"]);
     expect(t.noMatches()).toBe(false);
-    expect(t._ctxState.isDimmed("fruit")).toBe(true);
-    expect(t._ctxState.isDimmed("carrot")).toBe(false);
-    expect(t._ctxState.isDimmed("veg")).toBe(false);
+    expect(t.isDimmed("fruit")).toBe(true);
+    expect(t.isDimmed("carrot")).toBe(false);
+    expect(t.isDimmed("veg")).toBe(false);
   });
 
   it("highlightQuery is the query for the default matcher and null for a custom one", () => {
-    expect(make({ searchQuery: () => "app" })._ctxState.highlightQuery()).toBe("app");
-    expect(make({ searchQuery: () => "app", matcher: () => true })._ctxState.highlightQuery()).toBeNull();
+    expect(make({ searchQuery: () => "app" }).highlightQuery()).toBe("app");
+    expect(make({ searchQuery: () => "app", matcher: () => true }).highlightQuery()).toBeNull();
   });
 
   it("a custom matcher decides hits", () => {

@@ -1,12 +1,11 @@
-import { Component, For, Show, createMemo, createSignal, createEffect, onMount, JSX } from "solid-js";
+import { Component, For, Show, createMemo, createSignal, createEffect, onCleanup, onMount, JSX } from "solid-js";
 import { createVirtualizer } from "@tanstack/solid-virtual";
 import { TreeContext } from "./context.js";
 import { type FlatRow } from "../types.js";
 import { createTreeController, type TreeController } from "../controller/index.js";
-import { controllerOptionsFromProps, ctxFromController, warnIfTreeOverridesProps, type CoreViewProps } from "./Tree.js";
+import { controllerOptionsFromProps, rowContext, viewFromProps, warnIfTreeOverridesProps, type CoreViewProps } from "./Tree.js";
 import { buildContainerVars } from "./tokens.js";
 import { TreeRow } from "./TreeRow.js";
-import { createTreeInteraction } from "./interaction.js";
 
 export interface VirtualTreeProps extends CoreViewProps {
   /** Drive this view with an external controller; omit to build one from the props. */
@@ -64,7 +63,7 @@ const VirtualRow: Component<{
       }}
       style={`position:absolute; top:0; left:0; width:100%; transform:translateY(${props.vi.start}px)`}
     >
-      <Show when={props.row()}>{(r) => <TreeRow node={r().node} depth={r().depth} hasChildren={r().hasChildren} />}</Show>
+      <TreeRow row={props.row} />
     </div>
   );
 };
@@ -111,8 +110,7 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
     },
   });
 
-  const interaction = createTreeInteraction({
-    tree,
+  const view = viewFromProps(tree, props, {
     getContainer: () => viewportEl,
     renderedRows: () =>
       virtualizer
@@ -121,7 +119,12 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
         .filter((row: FlatRow | undefined): row is FlatRow => !!row),
     ensureRowVisible: (index) => virtualizer.scrollToIndex(index, { align: "auto" }),
   });
-  const ctx = ctxFromController(tree, props, interaction);
+  tree._registerScroller((id) => {
+    const index = rows().findIndex((r) => r.id === id);
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" });
+  });
+  onCleanup(() => tree._registerScroller(null));
+  const ctx = rowContext(tree, view, props);
 
   // Measure a row + feed the running-average estimate. Deferred to a microtask:
   // past the synchronous render (avoids measure→notify→re-render reentrancy) but
@@ -146,13 +149,12 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
   });
 
   return (
+    <>
     <div
       ref={(el) => (viewportEl = el)}
       class={`solid-tree-container solid-tree-viewport${props.class ? " " + props.class : ""}`}
-      role="tree"
-      aria-label={props.ariaLabel}
-      aria-labelledby={props.ariaLabelledBy}
-      data-searching={tree.searching() ? "" : undefined}
+      dir={props.dir}
+      {...view.getRootProps()}
       style={{
         // Bounded-height scroll viewport. overflow-anchor:none keeps dynamic
         // measurement from fighting the browser's scroll anchoring. Token layer
@@ -166,17 +168,17 @@ export const VirtualTree: Component<VirtualTreeProps> = (props) => {
       }}
     >
       <TreeContext.Provider value={ctx}>
-        <Show
-          when={!tree.noMatches()}
-          fallback={<div class="solid-tree-empty">{props.noMatchesLabel ?? "No matches"}</div>}
-        >
-          <div style={`position:relative; width:100%; height:${virtualizer.getTotalSize()}px`}>
-            <For each={virtualizer.getVirtualItems()}>
-              {(vi: VItem) => <VirtualRow vi={vi} row={() => rows()[vi.index]} measure={measure} />}
-            </For>
-          </div>
-        </Show>
+        <div style={`position:relative; width:100%; height:${virtualizer.getTotalSize()}px`}>
+          <For each={virtualizer.getVirtualItems()}>
+            {(vi: VItem) => <VirtualRow vi={vi} row={() => rows()[vi.index]} measure={measure} />}
+          </For>
+        </div>
       </TreeContext.Provider>
     </div>
+    <Show when={tree.noMatches()}>
+      <div class="solid-tree-empty">{props.noMatchesLabel ?? "No matches"}</div>
+    </Show>
+    <div {...view.getLiveRegionProps()}>{view.liveMessage()}</div>
+    </>
   );
 };

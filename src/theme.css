@@ -17,16 +17,17 @@
  *   .solid-tree-row[data-variant="action"] { ... }
  *   .solid-tree-container[data-searching] { ... }
  *
- * Tokens (defaults shown): --tree-font-size 12px · --tree-indent-base 12px ·
- * --tree-indent-step 12px · --tree-row-pad-y 4px · --tree-row-pad-x 8px ·
+ * Tokens (see src/view/tokens.ts for the authoritative defaults): --tree-font-size 12px · --tree-indent-base 1em ·
+ * --tree-indent-step 1em · --tree-row-pad-y 4px · --tree-row-pad-x 8px ·
  * --tree-row-radius 4px · --tree-row-color inherit · --tree-row-hover-bg ·
- * --tree-row-active-bg · --tree-group-weight 700 · --tree-count-opacity .5 ·
- * --tree-count-gap 4px · --tree-icon-left-gap 0 · --tree-icon-right-gap 6px ·
- * --tree-icon-right-size 11px · --tree-chevron-size 11px · --tree-chevron-color
- * (→ --text-muted) · --tree-chevron-gap 4px · --tree-action-gap 8px ·
- * --tree-action-opacity .6 · --tree-dim-opacity .38 · --tree-divider-color
+ * --tree-row-active-bg · --tree-group-weight 700 · --tree-count-opacity .6 ·
+ * --tree-count-gap .33em · --tree-icon-left-gap 0 · --tree-icon-right-gap .5em ·
+ * --tree-icon-right-size .92em · --tree-chevron-size .92em · --tree-chevron-color
+ * (→ --text-muted) · --tree-chevron-gap .33em · --tree-action-gap .67em ·
+ * --tree-action-opacity .6 · --tree-dim-opacity .55 · --tree-divider-color
  * (→ --border-subtle) · --tree-divider-margin 8px · --tree-mark-bg #fde68a ·
- * --tree-mark-color inherit.
+ * --tree-mark-color inherit · --tree-focus-color (Highlight) · --tree-focus-width 2px ·
+ * --tree-error-color.
  *
  * Still required somewhere up the tree (or rely on the fallbacks here):
  *   --text-muted (chevron), --border-subtle (divider).
@@ -60,4 +61,55 @@
   font-size: var(--tree-font-size, 12px);
   color: var(--text-muted, #8a8f98);
   opacity: 0.7;
+}
+
+/* ── Keyboard focus (E4): visible only for keyboard users ─────────────────── */
+.solid-tree-item:focus {
+  outline: none;
+}
+.solid-tree-item:focus-visible {
+  outline: var(--tree-focus-width, 2px) solid var(--tree-focus-color, Highlight);
+  outline-offset: -2px;
+  border-radius: var(--tree-row-radius, 4px);
+}
+/* The root is the Tab stop only while the remembered row is scrolled out (E5). */
+.solid-tree-container:focus-visible {
+  outline: var(--tree-focus-width, 2px) solid var(--tree-focus-color, Highlight);
+}
+
+/* ── Placeholder rows (loading / error under a lazy branch) ──────────────── */
+.solid-tree-row[data-placeholder="error"] .solid-tree-error {
+  color: var(--tree-error-color, #b42318);
+  font-style: normal;
+}
+
+/* ── Disabled rows ───────────────────────────────────────────────────────── */
+.solid-tree-row[data-disabled] {
+  cursor: default;
+}
+
+/* ── Density preset: <div data-density="compact"> on any ancestor ─────────── */
+[data-density="compact"] .solid-tree-row,
+.solid-tree-container[data-density="compact"] .solid-tree-row {
+  --tree-row-pad-y: 1px;
+  --tree-row-pad-x: 4px;
+}
+[data-density="compact"] .solid-tree-container {
+  --tree-font-size: 11px;
+}
+
+/* ── Dark mode: follows the OS, or force with data-theme="dark"/"light" ─────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .solid-tree-container {
+    --tree-mark-bg: #854d0e;
+    --tree-mark-color: #fef9c3;
+    --tree-error-color: #fda29b;
+    --tree-focus-color: #7cb7ff;
+  }
+}
+[data-theme="dark"] .solid-tree-container {
+  --tree-mark-bg: #854d0e;
+  --tree-mark-color: #fef9c3;
+  --tree-error-color: #fda29b;
+  --tree-focus-color: #7cb7ff;
 }

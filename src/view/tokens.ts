@@ -16,7 +16,7 @@ export const STYLE_DEFAULTS = {
   "--tree-indent-base-default": "1em",
   "--tree-indent-step-default": "1em",
   "--tree-group-weight-default": "700",
-  "--tree-count-opacity-default": "0.5",
+  "--tree-count-opacity-default": "0.6", // ≥ 4.5:1 on white (axe, WCAG AA)
   "--tree-count-gap-default": "0.33em",
   "--tree-count-weight-default": "400",
   "--tree-icon-left-gap-default": "0",
@@ -25,7 +25,7 @@ export const STYLE_DEFAULTS = {
   "--tree-chevron-gap-default": "0.33em",
   "--tree-action-gap-default": "0.67em",
   "--tree-action-opacity-default": "0.6",
-  "--tree-dim-opacity-default": "0.38",
+  "--tree-dim-opacity-default": "0.55", // dimmed text stays ≥ 4.5:1 on white
   "--tree-divider-color-default": "var(--border-subtle)",
   "--tree-divider-margin-default": "8px",
   "--tree-divider-height-default": "1px",
