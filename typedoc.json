@@ -1,0 +1,12 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.tsx", "src/virtual.tsx", "src/database.tsx", "src/supabase.tsx", "src/headless.ts", "src/testing.ts"],
+  "out": "docs/api",
+  "tsconfig": "tsconfig.json",
+  "name": "@timotholt/solid-tree",
+  "readme": "README.md",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "treatWarningsAsErrors": false,
+  "validation": { "notExported": false }
+}

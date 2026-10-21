@@ -4,7 +4,10 @@
     "noEmit": true,
     "emitDeclarationOnly": false,
     "declaration": false,
-    "rootDir": "."
+    "rootDir": ".",
+    "types": [
+      "vite/client"
+    ]
   },
   "include": [
     "src",

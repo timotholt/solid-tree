@@ -8,3 +8,5 @@ export { Chevron } from "./view/Chevron.js";
 export type { ChevronProps } from "./view/Chevron.js";
 export { storage } from "./state/storage.js";
 export { moveNodes } from "./moveNodes.js";
+export type { CheckMode, CheckState, DropPosition, SelectionMode } from "./core/index.js";
+export type { CoreControllerOptions } from "./controller/index.js";

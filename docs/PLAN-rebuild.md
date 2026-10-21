@@ -387,6 +387,17 @@ Tests per feature: core properties, keyboard matrix, dom ARIA, browser interacti
 
 ### Phase 8 — Examples and docs (alongside each phase; finished after Phase 7)
 
+**Done 2026-10-20 (local).**
+- 15 examples, written by three parallel agents against a contract. Each is a browser
+  test, and the gallery runs them live.
+- Guides, a TypeDoc reference, the site build and a Pages workflow.
+- The agents' feedback drove the API fixes in the CHANGELOG, plus one bug (G9) and one
+  behavior change (mixed → checked).
+- Verified: 15/15 live checks in real Chromium. The built site works served statically
+  from a subpath.
+- Not verified: the Pages workflow itself, which needs the push, Pages enabled and a
+  public repo or paid plan.
+
 15 examples. Each is self-contained, under ~150 lines, shown with its source, and
 doubles as a browser test: it loads with no console errors, axe is clean, and it has
 1–3 scripted interactions.

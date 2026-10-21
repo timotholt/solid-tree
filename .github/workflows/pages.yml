@@ -1,0 +1,50 @@
+name: Pages
+
+# Publishes the site to GitHub Pages: the example gallery (with its in-browser self-test),
+# the API reference (/api/), the full test report (/report/) and coverage (/coverage/).
+# One-time setup: repo Settings → Pages → Source: "GitHub Actions". Pages on a private
+# repository requires a paid plan.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm ci
+        working-directory: examples
+      - run: npx playwright install --with-deps chromium
+      - run: npm run site
+        env:
+          VITEST_MAX_WORKERS: 4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

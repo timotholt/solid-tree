@@ -6,6 +6,29 @@ breaking changes; they are always marked **Breaking**. Defect IDs refer to
 
 ## Unreleased
 
+### Added (phase 8: examples, docs, site)
+- Example gallery (`examples/`): 15 examples, from quick start to drag-and-drop. Each is
+  also a browser test (it renders, axe is clean, and its scripted check passes). A
+  "Run all checks in this browser" button runs every check live.
+- Guides (`docs/guide/`): getting started, concepts, data sources and adapters, theming
+  (the token table is generated and drift-tested), performance, testing, migration from
+  0.x. A TypeDoc API reference (`npm run docs:api`). A rewritten README and AGENTS.md.
+- `npm run site` and a Pages workflow: gallery + API + test report + coverage.
+- From example-writing feedback: `defaultExpandedIds`; `controllerRef` on prop-driven
+  views; `onRename` may return a string as the rejection reason; `onRemoteChange` on the
+  database tier; `source.compare` also orders fetched lists; error rows show the reason
+  and retry by keyboard (Enter on the parent) and for the roots;
+  `createMemorySource.failNext`; `CheckMode`/`DropPosition`/`SelectionMode` exported
+  from the main entry.
+
+### Changed (phase 8)
+- **Breaking (behavior):** toggling a *mixed* checkbox now checks the whole branch (it
+  used to uncheck it), matching the common tri-state convention.
+- Fixed: cascade checking no longer checks disabled descendants or counts them for the
+  parent (G9).
+- Error placeholder rows always use the built-in rendering (`renderLabel` is for real
+  nodes).
+
 ### Added (phase 7: features — see docs/SPEC-features.md)
 - **Inline rename:** `onRename` (enables it), `canRename`, `renameOnBlur`,
   `onRenameError`. F2 or `startEditing(id)`; Enter commits, Escape cancels. The new label

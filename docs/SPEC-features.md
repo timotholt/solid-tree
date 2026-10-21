@@ -61,7 +61,9 @@ intent through callbacks, and the app (or the data source) updates the data.
   nested checkbox control. A visual checkbox glyph renders in the leading slot,
   `aria-hidden`.
 - Space toggles the check on checkable rows. Enter still selects and activates.
-  Clicking the glyph toggles.
+  Clicking the glyph toggles. Unchecked or mixed → checked, checked → unchecked. (Changed
+  during Phase 8: mixed used to uncheck. Checking everything is the common tri-state
+  convention.)
 - Disabled nodes are not checkable.
 
 ## 7.4 Drag-and-drop and keyboard move

@@ -34,6 +34,8 @@ export interface CoreControllerOptions<T extends TreeNodeData = TreeNodeData> {
   expandedIds?: MaybeAccessor<Iterable<string> | null | undefined>;
   onExpandedChange?: (ids: string[]) => void;
   onToggle?: (id: string, expanded: boolean) => void;
+  /** Uncontrolled: ids open at creation (merged with restored state). */
+  defaultExpandedIds?: readonly string[];
   /** Opt-in localStorage persistence under `${storagePrefix}-${storageKey}`. */
   storageKey?: string;
   /** Default "tree". */
@@ -46,8 +48,11 @@ export interface CoreControllerOptions<T extends TreeNodeData = TreeNodeData> {
   selectAncestorOnCollapse?: boolean;
 
   // ── rename (SPEC-features 7.2) ──
-  /** Enables inline rename (F2 / startEditing). Return false or reject to cancel. */
-  onRename?: (node: T, value: string) => boolean | void | Promise<boolean | void>;
+  /**
+   * Enables inline rename (F2 / startEditing). Update your data and return true/void.
+   * To refuse: return false, return a string (the reason, passed to onRenameError), or throw.
+   */
+  onRename?: (node: T, value: string) => boolean | string | void | Promise<boolean | string | void>;
   canRename?: (node: T) => boolean;
   /** Default "commit". */
   renameOnBlur?: "commit" | "cancel";
@@ -89,6 +94,7 @@ export const CORE_OPTION_KEYS = [
   "expandedIds",
   "onExpandedChange",
   "onToggle",
+  "defaultExpandedIds",
   "storageKey",
   "storagePrefix",
   "persistence",

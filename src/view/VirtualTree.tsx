@@ -77,6 +77,7 @@ const VirtualRow: Component<{
 export const VirtualTree: Component<VirtualTreeProps> = (props) => {
   warnIfTreeOverridesProps(props, "VirtualTree");
   const tree = props.tree ?? createTreeController(controllerOptionsFromProps(props));
+  props.controllerRef?.(tree);
 
   // The flat visible row list — memoized in the view (controller recomputes on read).
   const rows = createMemo(() => tree.flatRows());

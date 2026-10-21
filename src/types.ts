@@ -68,6 +68,11 @@ export interface TreeProps {
   renderLeading?: (row: FlatRow) => JSX.Element;
   /** Text direction. "rtl" also swaps ArrowLeft/ArrowRight. */
   dir?: "ltr" | "rtl";
+  /**
+   * Receive the controller a prop-driven view builds, for imperative calls (toolbar
+   * buttons: startEditing, expandAll, scrollToId…) without switching to `tree={...}`.
+   */
+  controllerRef?: (tree: import("./controller/index.js").TreeController) => void;
   basePadding?: number;
   indentStep?: number;
 
@@ -116,7 +121,7 @@ export interface TreeSource {
   search?(query: string): Promise<TreeNodeData[]>;
   /** Ancestor ids of a node, root first. Lets server-search results be revealed. */
   getAncestors?(id: string): Promise<string[]>;
-  /** Sibling order, used to place realtime inserts and moves. Omit = append at the end. */
+  /** Sibling order: sorts fetched roots/children and places realtime inserts. Omit = source order. */
   compare?(a: TreeNodeData, b: TreeNodeData): number;
   /**
    * Persist a drag/keyboard move. `<DatabaseTree>` uses it when the app passes no

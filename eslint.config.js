@@ -1,7 +1,7 @@
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist/**", ".test-dist/**", "node_modules/**", "examples/**", "supabase/**", "coverage/**"] },
+  { ignores: ["dist/**", ".test-dist/**", "node_modules/**", "examples/**", "supabase/**", "coverage/**", "site/**", "docs/api/**", ".vitest/**"] },
   ...tseslint.configs.recommended,
   {
     rules: {

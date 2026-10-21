@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import solid from "vite-plugin-solid";
 import { playwright } from "@vitest/browser-playwright";
+import { resolve } from "node:path";
 
 // Three projects (see docs/PLAN-rebuild.md §5.1):
 //   unit    — pure logic, Node
@@ -13,7 +14,15 @@ export default defineConfig({
   plugins: [solid()],
   // One Solid instance (the same rule consumers must follow — see AGENTS.md), and
   // pre-bundle the browser deps up front so Vite never re-optimizes mid-run.
-  resolve: { dedupe: ["solid-js", "@tanstack/solid-virtual", "@tanstack/solid-query"] },
+  resolve: {
+    dedupe: ["solid-js", "@tanstack/solid-virtual", "@tanstack/solid-query"],
+    // The gallery examples import the published package name; point it at the source.
+    alias: [
+      { find: /^@timotholt\/solid-tree\/theme\.css$/, replacement: resolve(import.meta.dirname, "src/theme.css") },
+      { find: /^@timotholt\/solid-tree\/(virtual|database|supabase|testing|headless)$/, replacement: resolve(import.meta.dirname, "src/$1") },
+      { find: /^@timotholt\/solid-tree$/, replacement: resolve(import.meta.dirname, "src/index.tsx") },
+    ],
+  },
   optimizeDeps: {
     include: ["@tanstack/solid-virtual", "@tanstack/solid-query", "@solidjs/testing-library"],
     exclude: ["solid-js"],

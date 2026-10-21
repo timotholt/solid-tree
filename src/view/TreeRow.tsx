@@ -78,6 +78,10 @@ const indent = (isAction: boolean) =>
 const PlaceholderRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
   const ctx = useTree();
   const isError = () => props.row().placeholder === "error";
+  const reason = () => {
+    const err = (ctx.tree as { error?: (id: string | null) => unknown }).error?.(props.row().parentId);
+    return err instanceof Error ? err.message : err ? String(err) : "";
+  };
   return (
     <div class="solid-tree-row" role="none" data-placeholder={props.row().placeholder} style={{ display: "flex", "--tree-depth": String(props.row().depth) }}>
       <div
@@ -92,16 +96,10 @@ const PlaceholderRow: Component<{ row: Accessor<FlatRow> }> = (props) => {
           cursor: isError() ? "pointer" : "default",
         }}
       >
-        <Show
-          when={ctx.renderLabel}
-          fallback={
-            <span class={isError() ? "solid-tree-error" : "solid-tree-loading"} style="opacity:.6;font-style:italic">
-              {isError() ? "Failed to load — click to retry" : props.row().node.label}
-            </span>
-          }
-        >
-          {ctx.renderLabel!(props.row().node)}
-        </Show>
+        {/* Placeholders always use the built-in rendering; renderLabel is for real nodes. */}
+        <span class={isError() ? "solid-tree-error" : "solid-tree-loading"} style="opacity:.75;font-style:italic">
+          {isError() ? `Failed to load${reason() ? `: ${reason()}` : ""} — click (or press Enter on the parent) to retry` : props.row().node.label}
+        </span>
       </div>
     </div>
   );

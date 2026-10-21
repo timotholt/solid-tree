@@ -25,12 +25,15 @@ describe("checks — cascade", () => {
     expect(checkStateOf(idx, c, "apple", "cascade")).toBe("checked");
   });
 
-  it("checking all children checks the parent; toggling mixed clears it", () => {
+  // Rewritten for the mixed → checked rule (SPEC-features 7.3, changed in phase 8).
+  it("checking all children checks the parent; toggling a mixed parent checks everything, again clears", () => {
     let c = toggleCheck(idx, new Set(), "straw", "cascade");
     c = toggleCheck(idx, c, "blue", "cascade");
     expect(checkStateOf(idx, c, "berries", "cascade")).toBe("checked");
     c = toggleCheck(idx, c, "seed", "cascade");
     expect(checkStateOf(idx, c, "fruit", "cascade")).toBe("mixed");
+    c = toggleCheck(idx, c, "fruit", "cascade");
+    expect(checkStateOf(idx, c, "fruit", "cascade")).toBe("checked");
     c = toggleCheck(idx, c, "fruit", "cascade");
     expect(checkStateOf(idx, c, "fruit", "cascade")).toBe("unchecked");
     expect(c.size).toBe(0);
@@ -60,7 +63,7 @@ describe("checks — cascade", () => {
           const id = nodes[p % nodes.length];
           const before = checkStateOf(i, c, id, "cascade");
           c = toggleCheck(i, c, id, "cascade");
-          expect(checkStateOf(i, c, id, "cascade")).toBe(before === "unchecked" ? "checked" : "unchecked");
+          expect(checkStateOf(i, c, id, "cascade")).toBe(before === "checked" ? "unchecked" : "checked");
         }
         for (const id of nodes) {
           const kids = i.childrenOf(id).filter((k) => i.kindOf(k) === "node");
@@ -138,5 +141,18 @@ describe("moves", () => {
       ),
       { numRuns: 1000 }
     );
+  });
+});
+
+describe("checks — excluded (disabled) nodes", () => {
+  it("regression(G9): cascade never checks a disabled descendant, nor counts it for the parent", () => {
+    const disabled = new Set(["banana"]);
+    const isExcluded = (id: string) => disabled.has(id);
+    const always = () => true;
+    let c = toggleCheck(idx, new Set(), "fruit", "cascade", always, isExcluded);
+    expect(c.has("banana")).toBe(false);
+    expect(checkStateOf(idx, c, "fruit", "cascade", always, isExcluded)).toBe("checked");
+    c = toggleCheck(idx, c, "banana", "cascade", always, isExcluded);
+    expect(c.has("banana")).toBe(false); // toggling the excluded node itself is a no-op
   });
 });

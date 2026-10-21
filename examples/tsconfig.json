@@ -7,7 +7,32 @@
     "jsxImportSource": "solid-js",
     "strict": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": [
+      "vite/client"
+    ],
+    "paths": {
+      "@timotholt/solid-tree": [
+        "./../src/index.tsx"
+      ],
+      "@timotholt/solid-tree/virtual": [
+        "./../src/virtual.tsx"
+      ],
+      "@timotholt/solid-tree/database": [
+        "./../src/database.tsx"
+      ],
+      "@timotholt/solid-tree/supabase": [
+        "./../src/supabase.tsx"
+      ],
+      "@timotholt/solid-tree/testing": [
+        "./../src/testing.ts"
+      ],
+      "@timotholt/solid-tree/headless": [
+        "./../src/headless.ts"
+      ]
+    }
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

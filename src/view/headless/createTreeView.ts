@@ -7,6 +7,7 @@ import { shouldToggleFromRowClick } from "../navigation.js";
 /** What the database tier adds, detected structurally so the core view stays generic. */
 interface MaybeLazy {
   loading?(id: string | null): boolean;
+  error?(id: string | null): unknown;
   retry?(id: string | null): Promise<void>;
 }
 
@@ -282,6 +283,12 @@ export function createTreeView(opts: TreeViewOptions) {
   const onKeyDown = (event: KeyboardEvent, row: FlatRow) => {
     if (event.target !== event.currentTarget) return; // a control inside the row owns its keys
     const rows = tree.flatRows();
+    // A failed branch is retried from its parent row (placeholders take no focus).
+    if ((event.key === "Enter" || event.key === "ArrowRight") && row.expanded && lazy.error?.(row.id)) {
+      event.preventDefault();
+      void lazy.retry?.(row.id);
+      return;
+    }
     if (event.key === "F2" && tree.canRenameNode(row.id)) {
       event.preventDefault();
       tree.startEditing(row.id);
@@ -334,7 +341,7 @@ export function createTreeView(opts: TreeViewOptions) {
   const onRowClick = (event: MouseEvent, row: FlatRow) => {
     if (suppressClick) return; // the click that ends a drag
     if (row.kind === "placeholder") {
-      if (row.placeholder === "error" && row.parentId !== null) void lazy.retry?.(row.parentId);
+      if (row.placeholder === "error") void lazy.retry?.(row.parentId); // null parentId = the roots
       return;
     }
     if (row.kind !== "node") return;

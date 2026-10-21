@@ -93,13 +93,15 @@
     "test:browser": "vitest run --project browser",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage --project unit --project dom --project browser",
-    "gate": "npm run typecheck && npm run lint && npm run coverage && npm run test:sql && npm run build && npm run test:package && npm run lint:package && npm run size",
+    "gate": "npm run typecheck && npm --prefix examples run typecheck && npm run lint && npm run coverage && npm run test:sql && npm run build && npm run test:package && npm run lint:package && npm run size",
     "prepare": "npm run build",
     "test:package": "vitest run --project package",
     "lint:package": "publint && attw --pack . --profile esm-only --exclude-entrypoints theme.css",
     "size": "size-limit",
     "bench": "vitest run --project bench --silent=false",
-    "test:sql": "vitest run --project sql"
+    "test:sql": "vitest run --project sql",
+    "docs:api": "typedoc",
+    "site": "rm -rf site .vitest/ui .vitest/index.html .vitest/assets && npm --prefix examples run build -- --base ./ --outDir ../site && typedoc --out site/api && vitest run --project unit --project dom --project browser --project sql --coverage --coverage.reportsDirectory=site/coverage --reporter=default --reporter=html && mkdir -p site/report && cp -R .vitest/. site/report/ && rm -rf site/report/coverage site/report/attachments"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -128,6 +130,7 @@
     "@tanstack/solid-virtual": "^3.13.48",
     "@vitest/browser-playwright": "^5.0.5",
     "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/ui": "^5.0.5",
     "axe-core": "^4.14.0",
     "eslint": "^10.13.0",
     "fast-check": "^4.10.2",
@@ -136,6 +139,7 @@
     "publint": "^0.3.25",
     "size-limit": "^14.2.0",
     "solid-js": "^1.9.17",
+    "typedoc": "^0.28.20",
     "typescript": "~6.0.0",
     "typescript-eslint": "^8.72.0",
     "vite": "^8.3.4",

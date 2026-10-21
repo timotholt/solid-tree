@@ -37,14 +37,13 @@ Each must have **zero** violations. Keyboard behavior is covered by unit and DOM
 | Home / End | First / last visible row |
 | `*` | Expand all sibling parents |
 | Enter | Select and activate (`onActivate`) |
-| Space | Select |
+| Space | Select. On checkable rows it toggles the checkbox instead |
 | Type a letter / word | Jump to the next row whose label starts with it (type-ahead) |
 | Ctrl/Cmd+A | Select all (multiple mode) |
 | Shift+↓ / Shift+↑ | Extend the selection (multiple mode) |
 | Shift+click / Ctrl/Cmd+click | Range / toggle selection (multiple mode) |
 | Double-click | Activate |
 | F2 | Rename (when `onRename` is set). Enter commits, Escape cancels |
-| Space (checkable rows) | Toggle the checkbox (`aria-checked` on the treeitem) |
 | Ctrl+Shift+↑ / ↓ | Move before the previous / after the next sibling (when `onMove` is set) |
 | Ctrl+Shift+← / → | Move out of the parent / into the previous sibling |
 | Escape (while dragging) | Cancel the drag |

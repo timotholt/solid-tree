@@ -80,6 +80,7 @@ export function viewFromProps(tree: TreeController, props: CoreViewProps, extra:
 export const Tree: Component<TreeViewProps> = (props) => {
   warnIfTreeOverridesProps(props, "Tree");
   const tree = props.tree ?? createTreeController(controllerOptionsFromProps(props));
+  props.controllerRef?.(tree);
   let container: HTMLDivElement | undefined;
   const view = viewFromProps(tree, props, { getContainer: () => container });
   tree._registerScroller((id) => {

@@ -9,3 +9,6 @@ playground/dist/
 coverage/
 .vitest/
 .serena/
+docs/api/
+.claude/launch.json
+site/

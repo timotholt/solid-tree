@@ -22,6 +22,8 @@ export interface MemorySource extends TreeSource {
   emit(change: TreeChange): void;
   /** Make loads of this id (or "__roots") fail until heal(). */
   fail(id: string): void;
+  /** Make only the NEXT load of this id (or "__roots") fail. */
+  failNext(id: string): void;
   heal(id: string): void;
   readonly calls: { roots: number; children: string[]; search: string[] };
   /** A deep copy of the current backing tree. */
@@ -37,6 +39,7 @@ export function createMemorySource(tree: TreeNodeData[], opts: MemorySourceOptio
   const roots: TreeNodeData[] = structuredCloneTree(tree);
   const listeners = new Set<(c: TreeChange) => void>();
   const failing = new Set<string>();
+  const failOnce = new Set<string>();
   const calls = { roots: 0, children: [] as string[], search: [] as string[] };
   let seed = opts.seed ?? 1;
   const random = () => {
@@ -53,7 +56,7 @@ export function createMemorySource(tree: TreeNodeData[], opts: MemorySourceOptio
     return ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve();
   };
   const maybeFail = (id: string) => {
-    if (failing.has(id) || (opts.failRate ?? 0) > random()) throw new Error(`memory source: load of ${id} failed`);
+    if (failOnce.delete(id) || failing.has(id) || (opts.failRate ?? 0) > random()) throw new Error(`memory source: load of ${id} failed`);
   };
 
   const find = (id: string, list = roots, parent: TreeNodeData | null = null): { node: TreeNodeData; parent: TreeNodeData | null; list: TreeNodeData[] } | null => {
@@ -140,6 +143,7 @@ export function createMemorySource(tree: TreeNodeData[], opts: MemorySourceOptio
     },
     emit,
     fail: (id) => void failing.add(id),
+    failNext: (id) => void failOnce.add(id),
     heal: (id) => void failing.delete(id),
     calls,
     snapshot: () => structuredCloneTree(roots),

@@ -19,6 +19,8 @@ export interface DatabaseTreeControllerOptions extends CoreControllerOptions {
   maxConcurrentLoads?: number;
   /** Use `source.search` while a query is active. Default true when the source has it. */
   serverSearch?: boolean;
+  /** Observe every realtime change from the source (logging, toasts). Called before it is applied. */
+  onRemoteChange?: (change: TreeChange) => void;
 }
 
 /** {@link TreeController} plus the source/cache/lazy/realtime layer. */
@@ -55,6 +57,8 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
   const rootsKey = [prefix, "roots"];
   const childrenKey = (id: string) => [prefix, "children", id];
   const compare = (a: TreeNodeData, b: TreeNodeData) => opts.source.compare?.(a, b) ?? 0;
+  /** `compare` orders fetched lists too, not just realtime inserts. */
+  const sorted = (list: TreeNodeData[]) => (opts.source.compare ? [...list].sort(compare) : list);
   const insertSorted = (list: TreeNodeData[], node: TreeNodeData, at?: number) => {
     if (at !== undefined) return [...list.slice(0, at), node, ...list.slice(at)];
     if (!opts.source.compare) return [...list, node];
@@ -63,7 +67,7 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
   };
 
   const rootsQuery = createQuery(
-    () => ({ queryKey: rootsKey, queryFn: () => opts.source.getRoots() }),
+    () => ({ queryKey: rootsKey, queryFn: () => opts.source.getRoots().then(sorted) }),
     () => client
   );
 
@@ -137,7 +141,7 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
     setErrors(id, undefined);
     await acquire();
     try {
-      const kids = await client.fetchQuery({ queryKey: childrenKey(id), queryFn: () => opts.source.getChildren!(node) });
+      const kids = await client.fetchQuery({ queryKey: childrenKey(id), queryFn: () => opts.source.getChildren!(node).then(sorted) });
       setChildren(id, kids);
       setStatus(id, undefined);
     } catch (e) {
@@ -201,7 +205,10 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
     insertUnder(parentId, node, at);
   };
 
-  const handleChange = (c: TreeChange) => batch(() => applyChange(c));
+  const handleChange = (c: TreeChange) => {
+    opts.onRemoteChange?.(c);
+    batch(() => applyChange(c));
+  };
   const applyChange = (c: TreeChange) => {
     if (c.type === "update") {
       const current = untrack(() => ref.core!.index().parentOf(c.node.id));

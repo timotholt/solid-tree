@@ -1,13 +1,9 @@
 import { Component, mergeProps } from "solid-js";
 import { QueryClient } from "@tanstack/solid-query";
-import { type TreeNodeData, type TreeSource } from "../types.js";
+import { type TreeSource } from "../types.js";
 import { coreOptionsFromProps, warnIfTreeOverridesProps } from "../view/Tree.js";
 import { VirtualTree, type VirtualTreeProps } from "../view/VirtualTree.js";
-import {
-  createDatabaseTreeController,
-  type DatabaseTreeController,
-  LOADING_TYPE,
-} from "./createDatabaseTreeController.js";
+import { createDatabaseTreeController, type DatabaseTreeController } from "./createDatabaseTreeController.js";
 
 export interface DatabaseTreeProps extends Omit<VirtualTreeProps, "data" | "tree"> {
   /** Async, backend-agnostic source (Supabase/REST/local adapter). */
@@ -40,19 +36,11 @@ export const DatabaseTree: Component<DatabaseTreeProps> = (props) => {
       })
     );
 
-  // Render the lazy-load placeholder distinctly; otherwise delegate to consumer/default.
-  const renderLabel = (node: TreeNodeData) => {
-    if (node.type === LOADING_TYPE) {
-      // .solid-tree-loading is a styling hook (e.g. a spinner) consumers can target.
-      return <span class="solid-tree-loading" style="opacity:.6;font-style:italic">{node.label}</span>;
-    }
-    return props.renderLabel ? props.renderLabel(node) : node.label;
-  };
-
+  props.controllerRef?.(tree);
   return (
     <VirtualTree
       tree={tree}
-      renderLabel={renderLabel}
+      renderLabel={props.renderLabel}
       renderActionNode={props.renderActionNode}
       ariaLabel={props.ariaLabel}
       ariaLabelledBy={props.ariaLabelledBy}

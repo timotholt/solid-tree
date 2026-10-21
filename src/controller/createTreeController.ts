@@ -165,11 +165,17 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
     onToggle: (id, open) => opts.onToggle?.(id, open),
     persistence,
     pruneUnknown: !opts.lazy,
-    // Ancestors of the initial selection, in the initial state (G8: SSR shows them too).
-    initial: opts.revealSelection === false ? [] : untrack(() => {
-      const id = selection.id();
-      return id ? [...index().ancestorsOf(id)].reverse() : [];
-    }),
+    // defaultExpandedIds + ancestors of the initial selection, in the initial state
+    // (G8: SSR shows them too).
+    initial: [
+      ...(opts.defaultExpandedIds ?? []),
+      ...(opts.revealSelection === false
+        ? []
+        : untrack(() => {
+            const id = selection.id();
+            return id ? [...index().ancestorsOf(id)].reverse() : [];
+          })),
+    ],
   });
 
   // ── search ─────────────────────────────────────────────────────────────────
@@ -281,6 +287,7 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
     try {
       const ok = await opts.onRename(node, next);
       if (ok === false) opts.onRenameError?.(node, new Error("rename rejected"));
+      else if (typeof ok === "string") opts.onRenameError?.(node, new Error(ok));
     } catch (e) {
       opts.onRenameError?.(node, e);
     } finally {
@@ -303,6 +310,8 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
     return typeof opts.checkable === "function" ? opts.checkable(node) : true;
   };
   const isLoaded = (id: string) => opts.isLoaded?.(id) ?? true;
+  // Disabled or non-checkable nodes take no part in cascade (never toggled, never counted).
+  const isExcluded = (id: string) => !untrack(() => isCheckable(id));
 
   // ── moves (SPEC-features 7.4) ────────────────────────────────────────────────
   const canMoveTo = (sources: string[], target: string, position: DropPosition) => {
@@ -388,10 +397,10 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
     renameOnBlur: () => opts.renameOnBlur ?? "commit",
 
     isCheckable,
-    checkState: (id) => checkStateOf(index(), checkedIds(), id, opts.checkMode ?? "cascade", isLoaded),
+    checkState: (id) => checkStateOf(index(), checkedIds(), id, opts.checkMode ?? "cascade", isLoaded, isExcluded),
     toggleChecked: (id) => {
       if (!untrack(() => isCheckable(id))) return;
-      const next = toggleCheck(untrack(index), untrack(checkedIds), id, opts.checkMode ?? "cascade", isLoaded);
+      const next = toggleCheck(untrack(index), untrack(checkedIds), id, opts.checkMode ?? "cascade", isLoaded, isExcluded);
       if (!checkedControlled) setOwnChecked(next);
       opts.onCheckedChange?.([...next]);
     },
