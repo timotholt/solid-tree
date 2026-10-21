@@ -205,6 +205,16 @@ Exit: core green. **Phase 2 flips no controller defects.** A3 flips in Phase 3.
 
 ### Phase 3 — State, controller and the contracts (serial; the fork point)
 
+**Done 2026-10-20.**
+- Closed A1, A2, A3, B7, B9, B10, B11, D3, D5, D7, G1 and G8, each with a
+  `regression(<ID>)` test. B7 needed no tier code: the controller drops a selection
+  whose node leaves the data.
+- Contracts frozen in [SPEC-contracts.md](SPEC-contracts.md). Layout restructured.
+- Moved to Phase 4: G2. Rows remounting on keystrokes is a view concern; the
+  `<For>`-by-id rendering lands with the view rebuild.
+- Typeahead, `*`, RTL, `onActivate` (Enter) and disabled nodes landed early. Phase 4
+  finishes E3 with double-click activation.
+
 - State primitives: controlled or uncontrolled **expansion** (`expandedIds` +
   `onExpandedChange`), `PersistenceAdapter` with stale-id pruning and replay only for
   existing ids (B9), selection with `deselect` emitting a change (B10), search with
@@ -224,7 +234,7 @@ Tests: unit tests per primitive. Phase 0's characterization suite still passes,
 except for tests that intentionally flip. Regression test: "row components survive
 keystrokes" (G2).
 
-Exit: A1–A3, B9–B11, D5, G1, G2, G8 closed. Contracts documented in `docs/SPEC-contracts.md`.
+Exit: A1–A3, B9–B11, D5, G1, G8 closed (G2 → P4). Contracts documented in `docs/SPEC-contracts.md`.
 
 ### Phase 4 — Views, headless layer, accessibility (parallel with 5 and 6)
 
@@ -251,7 +261,7 @@ virtual slot reuse across kinds (B1), focus across scroll-out (E5), a 100k scrol
 smoke test, axe on every example. Manual VoiceOver + Safari and NVDA + Firefox
 checks once per release, recorded in `docs/ACCESSIBILITY.md`.
 
-Exit: B1, E1–E7, G3, G6 closed.
+Exit: B1, E1–E7, G2, G6 closed.
 
 ### Phase 5 — Database tier state (parallel with 4 and 6)
 

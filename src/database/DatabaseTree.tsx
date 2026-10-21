@@ -1,13 +1,13 @@
-import { Component } from "solid-js";
+import { Component, mergeProps } from "solid-js";
 import { QueryClient } from "@tanstack/solid-query";
-import { type TreeNodeData, type TreeSource } from "./types.js";
-import { coreOptionsFromProps } from "./Tree.js";
-import { VirtualTree, type VirtualTreeProps } from "./VirtualTree.js";
+import { type TreeNodeData, type TreeSource } from "../types.js";
+import { coreOptionsFromProps, warnIfTreeOverridesProps } from "../view/Tree.js";
+import { VirtualTree, type VirtualTreeProps } from "../view/VirtualTree.js";
 import {
   createDatabaseTreeController,
   type DatabaseTreeController,
   LOADING_TYPE,
-} from "./DatabaseTreeController.js";
+} from "./createDatabaseTreeController.js";
 
 export interface DatabaseTreeProps extends Omit<VirtualTreeProps, "data" | "tree"> {
   /** Async, backend-agnostic source (Supabase/REST/local adapter). */
@@ -26,13 +26,19 @@ export interface DatabaseTreeProps extends Omit<VirtualTreeProps, "data" | "tree
  * (both optional). Dedupe solid-js (see AGENTS).
  */
 export const DatabaseTree: Component<DatabaseTreeProps> = (props) => {
+  warnIfTreeOverridesProps(props, "DatabaseTree");
   const tree =
     props.tree ??
-    createDatabaseTreeController({
-      source: props.source!,
-      queryClient: props.queryClient,
-      ...coreOptionsFromProps(props),
-    });
+    createDatabaseTreeController(
+      mergeProps(coreOptionsFromProps(props), {
+        get source() {
+          return props.source!;
+        },
+        get queryClient() {
+          return props.queryClient;
+        },
+      })
+    );
 
   // Render the lazy-load placeholder distinctly; otherwise delegate to consumer/default.
   const renderLabel = (node: TreeNodeData) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { QueryClient } from "@tanstack/solid-query";
-import { createDatabaseTreeController, LOADING_TYPE } from "../../src/DatabaseTreeController.js";
+import { createDatabaseTreeController, LOADING_TYPE } from "../../src/database/createDatabaseTreeController.js";
 import { knownDefect } from "../support/known-defect.js";
 import { fakeSource } from "../support/fake-source.js";
 import { flush, inRoot } from "../support/root.js";
@@ -196,7 +196,7 @@ knownDefect("B6", "inserting the first child under a leaf makes it expandable", 
   expect(t.flatRows().find((r) => r.node.id === "b")!.hasChildren).toBe(true);
 });
 
-knownDefect("B7", "removing the selected node clears the selection", async () => {
+it("regression(B7): removing the selected node clears the selection", async () => {
   const { t, fake } = setup();
   await flush();
   t.select("c");

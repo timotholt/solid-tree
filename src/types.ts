@@ -1,6 +1,6 @@
 import { JSX } from "solid-js";
 
-export interface TreeNodeData {
+export interface TreeNodeData<P = any> {
   id: string;
   label: string;
   iconLeft?: string | JSX.Element;
@@ -8,10 +8,14 @@ export interface TreeNodeData {
   status?: string;
   count?: number;
   isDivider?: boolean;
-  children?: TreeNodeData[];
+  children?: TreeNodeData<P>[];
   /** App-defined node kind, surfaced back to you in onSelect. Not interpreted by the component. */
   type: string;
-  payload?: any;
+  payload?: P;
+  /** `"separator"` renders a divider (same as `isDivider`). */
+  kind?: "separator";
+  /** Focusable but not selectable or activatable. */
+  disabled?: boolean;
   /**
    * "action" rows render centered, dimmed, with no chevron/indent — for
    * affordances like "+ Add new". Defaults to "default".
@@ -52,6 +56,8 @@ export interface TreeProps {
   onSelect: (node: TreeNodeData) => void;
   /** Veto selection of a node (return false to make it unselectable, e.g. locked by another user). */
   canSelect?: (node: TreeNodeData) => boolean;
+  /** Enter on a row (and, from Phase 4, double-click). Distinct from selection. */
+  onActivate?: (node: TreeNodeData) => void;
   onToggle?: (id: string, expanded: boolean) => void;
   /** Row-body click behavior. Default: `"finder"` (the original behavior). */
   rowClickPolicy?: TreeRowClickPolicy;
@@ -87,7 +93,8 @@ export interface TreeProps {
  * up live. Only changes to ALREADY-LOADED branches are applied; the rest load fresh.
  */
 export type TreeChange =
-  | { type: "update"; node: TreeNodeData } // a node's fields changed (label/status/payload/…)
+  | { type: "update"; node: TreeNodeData; parentId?: string | null } // fields changed; parentId when the source knows it
+  | { type: "move"; id: string; parentId: string | null; index?: number } // reparented/reordered (SPEC-contracts §4)
   | { type: "insert"; parentId: string | null; node: TreeNodeData } // null parent = a new root
   | { type: "remove"; id: string } // a node (and its subtree) was deleted
   | { type: "reload" }; // source can't express the change granularly → refetch roots (+ drop lazy children)
@@ -108,9 +115,23 @@ export interface TreeSource {
 
 /** One row in the linearized, currently-visible view of the tree. */
 export interface FlatRow {
+  id: string;
+  /** "placeholder" rows (loading/error under a lazy branch) are synthesized, not data. */
+  kind: "node" | "separator" | "placeholder";
+  placeholder?: "loading" | "error";
+  /** The node (for placeholder rows, a synthesized stand-in). */
   node: TreeNodeData;
+  /** 0-based depth. */
   depth: number;
+  /** 1-based aria-level. */
+  level: number;
+  /** aria-posinset among visible, non-separator siblings (0 for separators/placeholders). */
+  posinset: number;
+  /** aria-setsize (0 for separators/placeholders). */
+  setsize: number;
   hasChildren: boolean;
-  /** false for dividers — keyboard nav / a11y treeitem logic should skip these. */
+  expanded: boolean;
+  parentId: string | null;
+  /** false for separators and placeholders — never focus or select targets. */
   navigable: boolean;
 }

@@ -1,7 +1,7 @@
 import { Component, For, Show } from "solid-js";
 import { TreeRow } from "./TreeRow.js";
 import { useTree } from "./context.js";
-import { TreeNodeData } from "./types.js";
+import { TreeNodeData } from "../types.js";
 
 // Recursive wrapper: a row plus its expanded children. <Tree> renders these.
 // (Kept recursive on purpose — fine-grained, stable identity. Flattening +

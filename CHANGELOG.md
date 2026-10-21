@@ -6,7 +6,43 @@ breaking changes; they are always marked **Breaking**. Defect IDs refer to
 
 ## Unreleased
 
-### Changed
+### Changed (phase 3: state + controller)
+- **Breaking:** controlled inputs (`selectedId`, `selectedIds`, `expandedIds`,
+  `searchQuery`) are controlled when the prop/option is **passed**, decided once.
+  `<Tree data onSelect>` without `selectedId` now keeps its own selection (A1). Use
+  `null` for "controlled, nothing selected".
+- **Breaking:** collapsing an ancestor of the selection no longer selects that ancestor
+  (and no longer fires `onSelect`). Opt back in with `selectAncestorOnCollapse` (B11).
+- **Breaking:** `FlatRow` has more fields (`id`, `kind`, `level`, `posinset`, `setsize`,
+  `expanded`, `parentId`, `placeholder`). The old ones (`node`, `depth`,
+  `hasChildren`, `navigable`) are unchanged.
+- **Breaking:** `TreeController.selectedId()` returns `null` (not `undefined`) when
+  nothing is selected.
+- Every controller option and component prop is live: changing `matcher`,
+  `filterMode`, `rowClickPolicy`, `canSelect` and the others at runtime takes effect (G1).
+- Search no longer writes the user's expansion state. Toggles while searching are
+  temporary, never persisted, and reset when the search ends (A2). Search opens only the
+  ancestors of matches, not a matched node's own subtree (A3).
+- Restored expansion drops ids that no longer exist (B9). A selection whose node leaves
+  the data is cleared (B7). The initial selection is revealed in the first render,
+  including on the server (G8).
+
+### Added (phase 3)
+- `selectionMode: "multiple"` with `toggleSelected`, `selectRange`, `selectAll` and
+  controlled `selectedIds`. `onSelectionChange(ids)` reports every change, including
+  `deselect()` (B10).
+- Controlled expansion (`expandedIds` + `onExpandedChange`). `persistence` adapters
+  (`localStoragePersistence`, `memoryPersistence`; the stored format is unchanged).
+- `onActivate` (Enter). Type-ahead. `*` expands sibling parents. RTL-aware arrow keys.
+  `disabled` nodes (focusable, not selectable). `scrollToId`. `revealSelection`.
+- Dev warnings: a controlled value that becomes `undefined`, and `tree={...}` combined
+  with props it ignores (D5). Duplicate node ids throw an error naming the id.
+- `TreeChange` gains a `move` type and an optional `parentId` on `update` (moves
+  are wired up in phases 5 and 6).
+- Internal: the framework-free core (`src/core/`) and the new source layout (`core/`,
+  `state/`, `controller/`, `view/`, `database/`, `supabase/`).
+
+### Changed (phases 0–2)
 - **Breaking:** peer minimums are now the versions the test suite verifies:
   `solid-js` ≥ 1.9.16, `@tanstack/solid-virtual` ≥ 3.13.32, `@tanstack/solid-query`
   ≥ 5.30.0, `@supabase/supabase-js` ≥ 2.45.0.

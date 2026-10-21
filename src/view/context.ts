@@ -1,5 +1,5 @@
 import { createContext, useContext, JSX } from "solid-js";
-import { TreeNodeData, type TreeRowClickPolicy } from "./types.js";
+import { TreeNodeData, type TreeRowClickPolicy } from "../types.js";
 
 // Shared per-render state for the rows — carried via context so the recursion
 // only passes what actually varies per node (node + depth). Reactive bits

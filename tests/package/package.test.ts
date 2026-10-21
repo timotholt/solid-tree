@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { knownDefect } from "../support/known-defect.js";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -81,7 +80,7 @@ describe("published package", () => {
     expect(html).toContain("Apple");
   });
 
-  knownDefect("G8", "a server render reveals the selection's ancestors like the client does", () => {
+  it("regression(G8): a server render reveals the selection's ancestors like the client does", () => {
     expect(serverRender("b")).toContain("Banana");
   });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@solidjs/testing-library";
 import { QueryClient } from "@tanstack/solid-query";
-import { DatabaseTree } from "../../src/DatabaseTree.js";
+import { DatabaseTree } from "../../src/database/DatabaseTree.js";
 import { SupabaseTree } from "../../src/supabase/SupabaseTree.js";
 import { fakeSource } from "../support/fake-source.js";
 import { fakeSupabase } from "../support/fake-supabase.js";

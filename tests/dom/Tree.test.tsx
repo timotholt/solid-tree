@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, fireEvent } from "@solidjs/testing-library";
 import { createSignal, onCleanup } from "solid-js";
-import { Tree } from "../../src/Tree.js";
-import { createTreeController } from "../../src/controller.js";
+import { Tree } from "../../src/view/Tree.js";
+import { createTreeController } from "../../src/controller/index.js";
 import type { TreeNodeData, TreeRowClickPolicy } from "../../src/types.js";
 import { knownDefect } from "../support/known-defect.js";
 import { flush } from "../support/root.js";
+import { expectConsole } from "../support/console.js";
 import { n, produce } from "../support/fixtures.js";
 
 const items = (c: HTMLElement) => Array.from(c.querySelectorAll<HTMLElement>("[role='treeitem']"));
@@ -187,13 +188,13 @@ describe("<Tree> with an external controller", () => {
 
 // ── Known defects ────────────────────────────────────────────────────────────────
 
-knownDefect("A1", "<Tree> without selectedId shows the clicked row as selected", () => {
+it("regression(A1): <Tree> without selectedId shows the clicked row as selected", () => {
   const { container } = render(() => <Tree data={produce()} onSelect={() => {}} />);
   fireEvent.click(item(container, "veg"));
   expect(item(container, "veg").getAttribute("aria-selected")).toBe("true");
 });
 
-knownDefect("G1", "changing rowClickPolicy at runtime takes effect", () => {
+it("regression(G1): changing rowClickPolicy at runtime takes effect", () => {
   const [policy, setPolicy] = createSignal<TreeRowClickPolicy>("finder");
   const { container } = render(() => <Tree data={produce()} onSelect={() => {}} rowClickPolicy={policy()} />);
   setPolicy("select-only");
@@ -201,7 +202,7 @@ knownDefect("G1", "changing rowClickPolicy at runtime takes effect", () => {
   expect(visibleIds(container)).not.toContain("carrot");
 });
 
-knownDefect("G1", "changing the matcher prop at runtime takes effect", () => {
+it("regression(G1): changing the matcher prop at runtime takes effect", () => {
   const byLabel = (node: TreeNodeData, q: string) => node.label.includes(q);
   const onlyBlue = (node: TreeNodeData) => node.id === "blue";
   const [m, setM] = createSignal<(node: TreeNodeData, q: string) => boolean>(byLabel);
@@ -237,4 +238,39 @@ knownDefect("E1", "treeitems expose aria-setsize and aria-posinset", () => {
   const veg = item(container, "veg");
   expect(veg.getAttribute("aria-posinset")).toBe("2");
   expect(veg.getAttribute("aria-setsize")).toBe("2");
+});
+
+describe("<Tree> keyboard extras (E3)", () => {
+  it("type-ahead focuses the next row starting with the typed character", async () => {
+    const { container } = render(() => <Tree data={produce()} onSelect={() => {}} />);
+    item(container, "fruit").focus();
+    fireEvent.keyDown(item(container, "fruit"), { key: "v" });
+    await flush();
+    expect(document.activeElement).toBe(item(container, "veg"));
+  });
+
+  it("* expands all sibling parents", () => {
+    const { container } = render(() => <Tree data={produce()} onSelect={() => {}} />);
+    fireEvent.keyDown(item(container, "fruit"), { key: "*" });
+    expect(visibleIds(container)).toEqual(expect.arrayContaining(["apple", "carrot"]));
+  });
+
+  it("Enter activates; Space only selects", () => {
+    const onActivate = vi.fn();
+    const { container } = render(() => <Tree data={produce()} onSelect={() => {}} onActivate={onActivate} />);
+    fireEvent.keyDown(item(container, "veg"), { key: " " });
+    expect(onActivate).not.toHaveBeenCalled();
+    fireEvent.keyDown(item(container, "veg"), { key: "Enter" });
+    expect(onActivate).toHaveBeenCalledWith(expect.objectContaining({ id: "veg" }));
+  });
+});
+
+describe("<Tree> dev warnings (D5)", () => {
+  it("warns when tree={...} is combined with data or controller props", () => {
+    render(() => {
+      const t = createTreeController({ data: () => produce() });
+      return <Tree tree={t} data={produce()} selectedId="veg" />;
+    });
+    expect(expectConsole("warn", /ignores these props.*data, selectedId/)).toBe(1);
+  });
 });

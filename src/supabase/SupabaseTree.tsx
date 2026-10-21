@@ -1,6 +1,6 @@
-import { type Component } from "solid-js";
-import { coreOptionsFromProps } from "../Tree.js";
-import { DatabaseTree, type DatabaseTreeProps } from "../DatabaseTree.js";
+import { type Component, mergeProps } from "solid-js";
+import { coreOptionsFromProps, warnIfTreeOverridesProps } from "../view/Tree.js";
+import { DatabaseTree, type DatabaseTreeProps } from "../database/DatabaseTree.js";
 import { type TreeSource } from "../types.js";
 import { createSupabaseTreeController, type SupabaseTreeController, type SupabaseTreeControllerOptions } from "./controller.js";
 
@@ -31,25 +31,55 @@ export interface SupabaseTreeProps extends Omit<DatabaseTreeProps, "source" | "t
  * Subpath: `@timotholt/solid-tree/supabase`. Peer: @supabase/supabase-js (optional).
  */
 export const SupabaseTree: Component<SupabaseTreeProps> = (props) => {
+  warnIfTreeOverridesProps(props, "SupabaseTree");
   const tree =
     props.tree ??
-    createSupabaseTreeController({
-      client: props.client!,
-      source: props.source,
-      table: props.table,
-      toNode: props.toNode,
-      idColumn: props.idColumn,
-      parentColumn: props.parentColumn,
-      select: props.select,
-      orderBy: props.orderBy,
-      schema: props.schema,
-      realtime: props.realtime,
-      pageSize: props.pageSize,
-      queryClient: props.queryClient,
-      heartbeatMs: props.heartbeatMs,
-      onLockLost: props.onLockLost,
-      ...coreOptionsFromProps(props),
-    });
+    createSupabaseTreeController(
+      mergeProps(coreOptionsFromProps(props), {
+        get client() {
+          return props.client!;
+        },
+        get source() {
+          return props.source;
+        },
+        get table() {
+          return props.table;
+        },
+        get toNode() {
+          return props.toNode;
+        },
+        get idColumn() {
+          return props.idColumn;
+        },
+        get parentColumn() {
+          return props.parentColumn;
+        },
+        get select() {
+          return props.select;
+        },
+        get orderBy() {
+          return props.orderBy;
+        },
+        get schema() {
+          return props.schema;
+        },
+        get realtime() {
+          return props.realtime;
+        },
+        get pageSize() {
+          return props.pageSize;
+        },
+        get queryClient() {
+          return props.queryClient;
+        },
+        get heartbeatMs() {
+          return props.heartbeatMs;
+        },
+        get onLockLost() {
+          return props.onLockLost;
+        },
+      })
+    );
 
   return (
     <DatabaseTree

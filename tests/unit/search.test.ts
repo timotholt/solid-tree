@@ -7,7 +7,7 @@ import {
   findNode,
   flattenVisible,
   pruneNode,
-} from "../../src/search.js";
+} from "../../src/compat/search.js";
 import { n, produce } from "../support/fixtures.js";
 
 const ids = (rows: { node: { id: string } }[]) => rows.map((r) => r.node.id);

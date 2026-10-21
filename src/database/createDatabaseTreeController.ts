@@ -1,9 +1,9 @@
-import { createEffect, createMemo, onMount, onCleanup } from "solid-js";
+import { createEffect, createMemo, mergeProps, onMount, onCleanup } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { QueryClient, createQuery } from "@tanstack/solid-query";
-import { type TreeNodeData, type TreeSource, type TreeChange } from "./types.js";
-import { findNode } from "./search.js";
-import { createTreeController, pickCore, type TreeController, type CoreControllerOptions } from "./controller.js";
+import { type TreeNodeData, type TreeSource, type TreeChange } from "../types.js";
+import { findNode } from "../compat/search.js";
+import { createTreeController, pickCore, type TreeController, type CoreControllerOptions } from "../controller/index.js";
 
 /** Placeholder node type for the "Loading…" row shown under an unloaded branch. */
 export const LOADING_TYPE = "__solid-tree-loading";
@@ -152,15 +152,18 @@ export function createDatabaseTreeController(opts: DatabaseTreeControllerOptions
   });
 
   // ── core controller over the assembled data; expand triggers a lazy load ─────
-  const core = createTreeController({
-    data,
-    ...pickCore(opts),
-    // override the forwarded onToggle: expand triggers a lazy load, then the user's hook.
-    onToggle: (id, expanded) => {
-      if (expanded) void loadChildren(id);
-      opts.onToggle?.(id, expanded);
-    },
-  });
+  const core = createTreeController(
+    mergeProps(pickCore(opts), {
+      data,
+      // Restored expansion of not-yet-loaded nodes waits for them instead of being pruned.
+      lazy: true,
+      // override the forwarded onToggle: expand triggers a lazy load, then the user's hook.
+      onToggle: (id: string, expanded: boolean) => {
+        if (expanded) void loadChildren(id);
+        opts.onToggle?.(id, expanded);
+      },
+    })
+  );
 
   // Self-heal: any node that is expanded + expandable + not-yet-loaded gets loaded.
   // Covers the race where expand() ran before the node was expandable (e.g. a leaf that

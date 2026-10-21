@@ -7,6 +7,10 @@ plan's phases say which IDs they close. IDs are never reused.
 Evidence key: **run** = reproduced by executing code against v0.16.0. **read** = high
 confidence from reading the code; the Phase 0 characterization tests confirm or retract it.
 
+**Phase 3 status (2026-10-20):** closed, each with a `regression(<ID>)` test: A1, A2, A3,
+B7, B9, B10, B11, D3, D5, D7, G1, G8. Still open: B1–B6, B8, E1, E5, G2, G4, G5, G7
+(Phases 4–6).
+
 **Phase 0 status (2026-10-20):** a `knownDefect(<ID>)` test now reproduces each of
 A1, A2, A3, B1, B2, B3, B4, B5, B6, B7, B8 (three cases), B9, B10, B11, E1, E5, G1, G2,
 G4 and G5. Those tests pass only while the defect exists. G3 is retracted. B4 is

@@ -2,7 +2,7 @@ import { Component, Show, JSX } from "solid-js";
 import { Chevron } from "./Chevron.js";
 import { tok } from "./tokens.js";
 import { useTree } from "./context.js";
-import { TreeNodeData } from "./types.js";
+import { TreeNodeData } from "../types.js";
 import { shouldToggleFromRowClick } from "./navigation.js";
 
 // Built-in highlight for the DEFAULT matcher path — wraps the matched substring

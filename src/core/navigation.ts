@@ -25,6 +25,7 @@ export interface KeyOptions {
  */
 export function resolveKey(key: string, currentId: string, rows: readonly Row[], opts: KeyOptions = {}): KeyAction | null {
   const disabled = opts.isDisabled ?? (() => false);
+  // Separators and placeholders are never focus targets.
   const nav = rows.filter((r) => r.kind === "node" && !(opts.skipDisabled && disabled(r.id)));
   const index = nav.findIndex((r) => r.id === currentId);
   if (index < 0) return null;

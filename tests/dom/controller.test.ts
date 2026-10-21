@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRoot, createSignal } from "solid-js";
-import { createTreeController, type TreeControllerOptions } from "../../src/controller.js";
-import { coreOptionsFromProps } from "../../src/Tree.js";
-import { knownDefect } from "../support/known-defect.js";
+import { createTreeController, type TreeControllerOptions } from "../../src/controller/index.js";
+import { coreOptionsFromProps } from "../../src/view/Tree.js";
 import { expectConsole } from "../support/console.js";
 import { inRoot } from "../support/root.js";
 import { n, produce } from "../support/fixtures.js";
@@ -132,9 +131,10 @@ describe("selection", () => {
     );
   });
 
-  it("current behavior: collapsing an ancestor of the selection moves selection to it", () => {
+  // Pre-B11 default, now opt-in (rewritten against the new option, PLAN §5.3).
+  it("selectAncestorOnCollapse: collapsing an ancestor of the selection moves selection to it", () => {
     const onSelect = vi.fn();
-    const t = make({ onSelect });
+    const t = make({ onSelect, selectAncestorOnCollapse: true });
     t.select("seed");
     onSelect.mockClear();
     t.collapse("fruit");
@@ -238,21 +238,21 @@ describe("reactivity of data", () => {
 
 // ── Known defects (docs/ANALYSIS.md) ─────────────────────────────────────────────
 
-knownDefect("A1", "props-built controller keeps an uncontrolled selection", () => {
+it("regression(A1): props-built controller keeps an uncontrolled selection", () => {
   const props: { selectedId?: string | null; searchQuery?: string } = {};
   const t = inRoot(() => createTreeController({ data: () => produce(), ...coreOptionsFromProps(props) }));
   t.select("banana");
   expect(t.selectedId()).toBe("banana");
 });
 
-knownDefect("A1", "props-built controller honours setSearch when no searchQuery prop is passed", () => {
+it("regression(A1): props-built controller honours setSearch when no searchQuery prop is passed", () => {
   const props: { selectedId?: string | null; searchQuery?: string } = {};
   const t = inRoot(() => createTreeController({ data: () => produce(), ...coreOptionsFromProps(props) }));
   t.setSearch("banana");
   expect(t.searching()).toBe(true);
 });
 
-knownDefect("A2", "collapsing a search-expanded node during search does not persist expanded=true", () => {
+it("regression(A2): collapsing a search-expanded node during search does not persist expanded=true", () => {
   const [q, setQ] = createSignal("seed");
   const onToggle = vi.fn();
   const t = make({ searchQuery: q, onToggle });
@@ -262,34 +262,36 @@ knownDefect("A2", "collapsing a search-expanded node during search does not pers
   expect(onToggle).not.toHaveBeenCalledWith("apple", true);
 });
 
-knownDefect("A2", "the user can collapse a node while searching", () => {
+it("regression(A2): the user can collapse a node while searching", () => {
   const t = make({ searchQuery: () => "seed" });
   t.toggle("apple");
   expect(rowIds(t)).not.toContain("seed");
 });
 
-knownDefect("A3", "a matched parent does not force-open its own subtree", () => {
+it("regression(A3): a matched parent does not force-open its own subtree", () => {
   const t = make({ searchQuery: () => "Fruit" });
   expect(rowIds(t)).toEqual(["fruit"]);
 });
 
-knownDefect("B9", "restoring persisted state prunes ids that no longer exist", () => {
+it("regression(B9): restoring persisted state prunes ids that no longer exist", () => {
   localStorage.setItem("tree-side", JSON.stringify({ ghost: true, veg: true }));
   const onToggle = vi.fn();
   make({ storageKey: "side", onToggle });
   expect(onToggle).not.toHaveBeenCalledWith("ghost", true);
 });
 
-knownDefect("B10", "deselect notifies the app", () => {
-  const onSelect = vi.fn();
-  const t = make({ onSelect });
+// Rewritten against the new API (PLAN §5.3): deselect is reported through
+// onSelectionChange, not onSelect (whose node argument has no null case).
+it("regression(B10): deselect notifies the app", () => {
+  const onSelectionChange = vi.fn();
+  const t = make({ onSelectionChange });
   t.select("banana");
-  onSelect.mockClear();
+  onSelectionChange.mockClear();
   t.deselect();
-  expect(onSelect).toHaveBeenCalled();
+  expect(onSelectionChange).toHaveBeenCalledWith([]);
 });
 
-knownDefect("B11", "collapsing an ancestor of the selection does not emit a selection by default", () => {
+it("regression(B11): collapsing an ancestor of the selection does not emit a selection by default", () => {
   const onSelect = vi.fn();
   const t = make({ onSelect });
   t.select("seed");

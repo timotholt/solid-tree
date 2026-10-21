@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { storage } from "../../src/storage.js";
+import { storage } from "../../src/state/storage.js";
 
 // In the unit project there is no `window`: storage must be SSR-safe.
 describe("storage without window", () => {

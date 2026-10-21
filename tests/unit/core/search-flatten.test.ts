@@ -125,3 +125,23 @@ describe("searchView", () => {
     expect(flatten(i, none, v)).toHaveLength(50000);
   });
 });
+
+describe("flatten — lazy branches", () => {
+  const i = buildIndex([n("a"), n("b")]);
+  it("isExpandable gives a childless node a chevron", () => {
+    const rows = flatten(i, () => false, null, { isExpandable: (id) => id === "a" });
+    expect(rows.map((r) => [r.id, r.hasChildren])).toEqual([["a", true], ["b", false]]);
+  });
+  it("an expanded lazy node shows its placeholder row (not counted in sets)", () => {
+    const rows = flatten(i, (id) => id === "a", null, { isExpandable: (id) => id === "a", placeholder: () => "loading" });
+    expect(rows.map((r) => [r.id, r.kind, r.placeholder, r.level, r.setsize])).toEqual([
+      ["a", "node", undefined, 1, 2],
+      ["a::placeholder", "placeholder", "loading", 2, 0],
+      ["b", "node", undefined, 1, 2],
+    ]);
+  });
+  it("no placeholder kind → nothing rendered under the open lazy node", () => {
+    const rows = flatten(i, (id) => id === "a", null, { isExpandable: () => true, placeholder: () => null });
+    expect(rows.map((r) => r.id)).toEqual(["a", "b"]);
+  });
+});

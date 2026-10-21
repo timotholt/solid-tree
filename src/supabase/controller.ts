@@ -1,12 +1,12 @@
-import { createSignal, onCleanup, type Accessor } from "solid-js";
+import { createSignal, mergeProps, onCleanup, type Accessor } from "solid-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { QueryClient } from "@tanstack/solid-query";
 import { type TreeNodeData, type TreeSource } from "../types.js";
 import {
   createDatabaseTreeController,
   type DatabaseTreeController,
-} from "../DatabaseTreeController.js";
-import { pickCore, type CoreControllerOptions } from "../controller.js";
+} from "../database/createDatabaseTreeController.js";
+import { pickCore, type CoreControllerOptions } from "../controller/index.js";
 import { supabaseSource, type SupabaseSourceConfig } from "./source.js";
 import { createSupabaseLock } from "./lock.js";
 
@@ -108,7 +108,14 @@ export function createSupabaseTreeController(opts: SupabaseTreeControllerOptions
       : undefined,
   };
 
-  const db = createDatabaseTreeController({ source, queryClient: opts.queryClient, ...pickCore(opts) });
+  const db = createDatabaseTreeController(
+    mergeProps(pickCore(opts), {
+      source,
+      get queryClient() {
+        return opts.queryClient;
+      },
+    })
+  );
 
   return {
     ...db,

@@ -1,9 +1,9 @@
 import { Component, For, Show, createMemo, createSignal, createEffect, onMount, JSX } from "solid-js";
 import { createVirtualizer } from "@tanstack/solid-virtual";
 import { TreeContext } from "./context.js";
-import { type FlatRow } from "./types.js";
-import { createTreeController, type TreeController } from "./controller.js";
-import { controllerOptionsFromProps, ctxFromController, type CoreViewProps } from "./Tree.js";
+import { type FlatRow } from "../types.js";
+import { createTreeController, type TreeController } from "../controller/index.js";
+import { controllerOptionsFromProps, ctxFromController, warnIfTreeOverridesProps, type CoreViewProps } from "./Tree.js";
 import { buildContainerVars } from "./tokens.js";
 import { TreeRow } from "./TreeRow.js";
 import { createTreeInteraction } from "./interaction.js";
@@ -76,6 +76,7 @@ const VirtualRow: Component<{
  * Async/data-source concerns live one tier up in `<DatabaseTree>`.
  */
 export const VirtualTree: Component<VirtualTreeProps> = (props) => {
+  warnIfTreeOverridesProps(props, "VirtualTree");
   const tree = props.tree ?? createTreeController(controllerOptionsFromProps(props));
 
   // The flat visible row list — memoized in the view (controller recomputes on read).

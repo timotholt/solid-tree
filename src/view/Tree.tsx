@@ -1,7 +1,7 @@
-import { Component, For, Show } from "solid-js";
+import { Component, For, Show, mergeProps } from "solid-js";
 import { TreeContext, type TreeCtx } from "./context.js";
-import { type TreeProps, type TreeNodeData } from "./types.js";
-import { createTreeController, type TreeController, type CoreControllerOptions } from "./controller.js";
+import { type TreeProps, type TreeNodeData } from "../types.js";
+import { CORE_OPTION_KEYS, createTreeController, pickCore, type TreeController, type CoreControllerOptions } from "../controller/index.js";
 import { buildContainerVars } from "./tokens.js";
 import { TreeBranch } from "./TreeBranch.js";
 import { createTreeInteraction } from "./interaction.js";
@@ -10,34 +10,25 @@ import { createTreeInteraction } from "./interaction.js";
  * View props common to every tier: the controller inputs, but with `data`/`onSelect`
  * optional because the controller-driven form (`tree={...}`) supplies them itself.
  */
-export type CoreViewProps = Omit<TreeProps, "data" | "onSelect"> & {
-  data?: TreeNodeData[];
-  onSelect?: (node: TreeNodeData) => void;
-};
+export type CoreViewProps = Omit<TreeProps, "data" | "onSelect" | keyof CoreControllerOptions> &
+  CoreControllerOptions & {
+    data?: TreeNodeData[];
+  };
 
 export interface TreeViewProps extends CoreViewProps {
   /** Drive this view with an external controller; omit to build one from the props. */
   tree?: TreeController;
 }
 
-/** Adapt a component's props into the shared core controller options (reactive). */
-export function coreOptionsFromProps(props: CoreViewProps): CoreControllerOptions {
-  return {
-    selectedId: () => props.selectedId,
-    searchQuery: () => props.searchQuery,
-    matcher: props.matcher,
-    filterMode: props.filterMode,
-    onSelect: props.onSelect,
-    canSelect: props.canSelect,
-    onToggle: props.onToggle,
-    storageKey: props.storageKey,
-    storagePrefix: props.storagePrefix,
-  };
-}
+/**
+ * Adapt a component's props into the shared core controller options. Live getters, key
+ * presence preserved: controlled-iff-passed and runtime option changes both work (A1, G1).
+ */
+export const coreOptionsFromProps = (props: CoreViewProps): CoreControllerOptions => pickCore(props as never);
 
 /** Core options + in-memory data, for the base/virtual views. */
 export function controllerOptionsFromProps(props: CoreViewProps) {
-  return { data: () => props.data ?? [], ...coreOptionsFromProps(props) };
+  return mergeProps(coreOptionsFromProps(props), { data: () => props.data ?? [] });
 }
 
 /** Build the row-render context from controller state + the view's render slots. */
@@ -52,7 +43,9 @@ export function ctxFromController(
 ): TreeCtx {
   return {
     ...tree._ctxState,
-    rowClickPolicy: slots.rowClickPolicy ?? "finder",
+    get rowClickPolicy() {
+      return slots.rowClickPolicy ?? "finder";
+    },
     accessibleTree: !!interaction,
     tabbableId: interaction?.tabbableId ?? (() => undefined),
     focusRow: interaction?.focusRow ?? (() => undefined),
@@ -66,7 +59,20 @@ export function ctxFromController(
   };
 }
 
+/**
+ * Dev warning (ANALYSIS D5): with `tree={...}` the controller owns state, so data and
+ * controller options passed as props are ignored. Say so instead of failing silently.
+ */
+export function warnIfTreeOverridesProps(props: object & { tree?: unknown }, view: string) {
+  if (!props.tree) return;
+  const ignored = ["data", "source", ...CORE_OPTION_KEYS].filter((k) => k in props);
+  if (ignored.length) {
+    console.warn(`[solid-tree] <${view} tree={...}> ignores these props (configure the controller instead): ${ignored.join(", ")}`);
+  }
+}
+
 export const Tree: Component<TreeViewProps> = (props) => {
+  warnIfTreeOverridesProps(props, "Tree");
   const tree = props.tree ?? createTreeController(controllerOptionsFromProps(props));
   let container: HTMLDivElement | undefined;
   const interaction = createTreeInteraction({ tree, getContainer: () => container });

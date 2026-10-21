@@ -1,4 +1,5 @@
-import { TreeNodeData, TreeMatcher, FlatRow } from "./types.js";
+import { TreeNodeData, TreeMatcher, FlatRow } from "../types.js";
+import { buildIndex, flatten } from "../core/index.js";
 
 export const defaultMatcher: TreeMatcher = (node, query) =>
   node.label.toLowerCase().includes(query.toLowerCase());
@@ -58,23 +59,16 @@ export function containsDescendant(node: TreeNodeData, id: string): boolean {
 }
 
 /**
- * Linearize the tree into the rows that are currently visible (descending only
- * into expanded nodes). Dividers are included with `navigable: false`. This is
- * the seam `<VirtualTree>` feeds to a virtualizer; `<Tree>` renders recursively
- * and doesn't need it.
+ * Linearize the tree into the rows that are currently visible (descending only into
+ * expanded nodes). Kept for compatibility; built on the core `flatten`.
  */
-export function flattenVisible(
-  nodes: TreeNodeData[],
-  expanded: Record<string, boolean>,
-  depth = 0,
-  acc: FlatRow[] = []
-): FlatRow[] {
-  for (const node of nodes) {
-    const hasChildren = !!node.children && node.children.length > 0;
-    acc.push({ node, depth, hasChildren, navigable: !node.isDivider });
-    if (hasChildren && expanded[node.id]) {
-      flattenVisible(node.children!, expanded, depth + 1, acc);
-    }
-  }
-  return acc;
+export function flattenVisible(nodes: TreeNodeData[], expanded: Record<string, boolean>, depth = 0): FlatRow[] {
+  const index = buildIndex(nodes);
+  return flatten(index, (id) => !!expanded[id]).map((r) => ({
+    ...r,
+    depth: r.depth + depth,
+    level: r.level + depth,
+    node: index.get(r.id)!,
+    navigable: r.kind === "node",
+  }));
 }

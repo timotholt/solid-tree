@@ -7,8 +7,8 @@ export type { SupabaseSourceConfig } from "./supabase/source.js";
 export { createSupabaseLock } from "./supabase/lock.js";
 export type { SupabaseLock, SupabaseLockConfig } from "./supabase/lock.js";
 // layered controllers below this tier (handy for advanced composition)
-export { createDatabaseTreeController } from "./DatabaseTreeController.js";
-export type { DatabaseTreeController } from "./DatabaseTreeController.js";
-export { createTreeController } from "./controller.js";
-export type { TreeController } from "./controller.js";
+export { createDatabaseTreeController } from "./database/createDatabaseTreeController.js";
+export type { DatabaseTreeController } from "./database/createDatabaseTreeController.js";
+export { createTreeController } from "./controller/index.js";
+export type { TreeController } from "./controller/index.js";
 export type { TreeNodeData, TreeRowClickPolicy, TreeSource, TreeChange } from "./types.js";
