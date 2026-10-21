@@ -265,6 +265,17 @@ Exit: B1, E1–E7, G2, G6 closed.
 
 ### Phase 5 — Database tier state (parallel with 4 and 6)
 
+**Done 2026-10-20 (local; the push was blocked, so it did not go to a cloud session).**
+- Closed B2, B4, B5, B6 (controller side), B7 (cache leak), D6 and G5.
+- Added `/testing`: the memory source and the contract suite.
+- Two findings beyond the plan:
+  - Query-cache notifications arrive on a later tick, which made realtime moves briefly
+    duplicate a node. Fixed by mirroring the roots into a signal and applying each change
+    in one batch.
+  - Moves of unloaded nodes are now handled by refetching the destination.
+- One small edit in Phase 4's area: `TreeRow` takes `hasChildren` from the row, so lazy
+  branches work.
+
 Owns `database/*` except views, and `testing/*`. It implements state only; Phase 4
 renders it.
 

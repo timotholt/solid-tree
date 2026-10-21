@@ -59,6 +59,17 @@
         "default": "./dist/supabase.js"
       }
     },
+    "./testing": {
+      "solid": "./src/testing.ts",
+      "node": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/server/testing.js"
+      },
+      "import": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
+      }
+    },
     "./theme.css": "./src/theme.css"
   },
   "scripts": {

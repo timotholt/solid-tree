@@ -69,3 +69,12 @@ describe("buildIndex", () => {
     );
   });
 });
+
+describe("buildIndex duplicates: skip mode", () => {
+  it("keeps the first occurrence, drops the repeat with its subtree, and reports it", () => {
+    const seen: string[] = [];
+    const i = buildIndex([n("a"), n("b", [n("a", [n("z")])])], undefined, { duplicates: "skip", onDuplicate: (id) => seen.push(id) });
+    expect(i.order).toEqual(["a", "b"]);
+    expect(seen).toEqual(["a"]);
+  });
+});

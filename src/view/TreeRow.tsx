@@ -28,7 +28,12 @@ const HighlightedLabel: Component<{ label: string; query: string | null }> = (pr
 
 // A single row's interior (no child recursion) — shared by the recursive
 // <Tree> (via TreeBranch) and, later, the flat <VirtualTree>.
-export const TreeRow: Component<{ node: TreeNodeData; depth: number }> = (props) => {
+export const TreeRow: Component<{
+  node: TreeNodeData;
+  depth: number;
+  /** From a flat row: includes lazy branches whose children are not loaded yet. */
+  hasChildren?: boolean;
+}> = (props) => {
   const ctx = useTree();
 
   if (props.node.isDivider) {
@@ -43,7 +48,7 @@ export const TreeRow: Component<{ node: TreeNodeData; depth: number }> = (props)
   }
 
   const isAction = () => props.node.variant === "action";
-  const hasChildren = () => !!props.node.children && props.node.children.length > 0;
+  const hasChildren = () => props.hasChildren ?? (!!props.node.children && props.node.children.length > 0);
   const isExpanded = () => ctx.expanded()[props.node.id] || false;
   const isSelected = () => ctx.selectedId() === props.node.id;
   const dimmed = () => ctx.isDimmed(props.node.id);

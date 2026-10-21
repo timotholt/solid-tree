@@ -75,9 +75,23 @@ export function defaultAccessors<T extends DefaultNodeShape>(): TreeAccessors<T>
   };
 }
 
-export function buildIndex<T extends DefaultNodeShape>(nodes: readonly T[]): TreeIndex<T>;
-export function buildIndex<T>(nodes: readonly T[], accessors: TreeAccessors<T>): TreeIndex<T>;
-export function buildIndex<T>(nodes: readonly T[], accessors: TreeAccessors<T> = defaultAccessors() as unknown as TreeAccessors<T>): TreeIndex<T> {
+export interface BuildOptions {
+  /**
+   * What to do with a repeated id. "throw" (default) raises DuplicateIdError; "skip"
+   * keeps the first occurrence, drops the repeat (and its subtree) and reports it via
+   * `onDuplicate`, so bad data cannot take a whole tree down in production.
+   */
+  duplicates?: "throw" | "skip";
+  onDuplicate?(id: string): void;
+}
+
+export function buildIndex<T extends DefaultNodeShape>(nodes: readonly T[], accessors?: undefined, options?: BuildOptions): TreeIndex<T>;
+export function buildIndex<T>(nodes: readonly T[], accessors: TreeAccessors<T>, options?: BuildOptions): TreeIndex<T>;
+export function buildIndex<T>(
+  nodes: readonly T[],
+  accessors: TreeAccessors<T> = defaultAccessors() as unknown as TreeAccessors<T>,
+  options: BuildOptions = {}
+): TreeIndex<T> {
   const entries = new Map<string, Entry<T>>();
   const order: string[] = [];
   const roots: string[] = [];
@@ -96,7 +110,11 @@ export function buildIndex<T>(nodes: readonly T[], accessors: TreeAccessors<T> =
       entries.get(open.pop()!)!.end = order.length;
     }
     const id = accessors.id(node);
-    if (entries.has(id)) throw new DuplicateIdError(id);
+    if (entries.has(id)) {
+      if (options.duplicates !== "skip") throw new DuplicateIdError(id);
+      options.onDuplicate?.(id);
+      continue;
+    }
     const entry: Entry<T> = { node, parent, depth, order: order.length, kind: kindOf(node), children: [], end: 0 };
     entries.set(id, entry);
     order.push(id);

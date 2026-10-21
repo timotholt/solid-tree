@@ -104,8 +104,15 @@ export interface TreeSource {
   getRoots(): Promise<TreeNodeData[]>;
   /** Children of a node, fetched lazily on first expand. Omit for flat sources. */
   getChildren?(node: TreeNodeData): Promise<TreeNodeData[]>;
-  /** Server-side search → flat matching nodes. (Ancestor hydration is a future step.) */
+  /**
+   * Server-side search → flat matching nodes. When present, `<DatabaseTree>` uses it
+   * while a query is active, and loads each match's ancestors via `getAncestors`.
+   */
   search?(query: string): Promise<TreeNodeData[]>;
+  /** Ancestor ids of a node, root first. Lets server-search results be revealed. */
+  getAncestors?(id: string): Promise<string[]>;
+  /** Sibling order, used to place realtime inserts and moves. Omit = append at the end. */
+  compare?(a: TreeNodeData, b: TreeNodeData): number;
   /**
    * Live updates. Call `onChange` per change; return an unsubscribe fn. DatabaseTree
    * subscribes on mount and unsubscribes on cleanup. Omit for static sources.

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { createSignal } from "solid-js";
 import { QueryClient } from "@tanstack/solid-query";
 import { createDatabaseTreeController, LOADING_TYPE } from "../../src/database/createDatabaseTreeController.js";
-import { knownDefect } from "../support/known-defect.js";
 import { fakeSource } from "../support/fake-source.js";
 import { flush, inRoot } from "../support/root.js";
 import { n } from "../support/fixtures.js";
@@ -73,7 +73,8 @@ describe("createDatabaseTreeController — loading", () => {
     await flush();
     await flush();
     expect(fake.calls.children).toEqual(["a"]);
-    expect(ids(t)).toContain("a::__loading");
+    // Placeholder rows are synthesized now (SPEC-contracts §3): an error row, not a fake node.
+    expect(t.flatRows().find((r) => r.id === "a::placeholder")?.placeholder).toBe("error");
     fake.heal("a");
     await t.reloadChildren("a");
     expect(ids(t)).toContain("a1");
@@ -150,7 +151,7 @@ describe("realtime", () => {
 
 // ── Known defects ────────────────────────────────────────────────────────────────
 
-knownDefect("B2", "two trees sharing a QueryClient keep separate roots", async () => {
+it("regression(B2): two trees sharing a QueryClient keep separate roots", async () => {
   const qc = client();
   const one = fakeSource([n("one")]);
   const two = fakeSource([n("two")]);
@@ -162,24 +163,25 @@ knownDefect("B2", "two trees sharing a QueryClient keep separate roots", async (
   expect(ids(t2)).toEqual(["two"]);
 });
 
-knownDefect("B4", "a failed child load exposes an error state", async () => {
+it("regression(B4): a failed child load exposes an error state", async () => {
   const { t, fake } = setup();
   await flush();
   fake.fail("a");
   t.expand("a");
   await flush();
-  expect((t as unknown as { error?: (id: string) => unknown }).error?.("a")).toBeTruthy();
+  expect(t.error("a")).toBeInstanceOf(Error);
 });
 
-knownDefect("B4", "a failed roots load is distinguishable from an empty tree", async () => {
+it("regression(B4): a failed roots load is distinguishable from an empty tree", async () => {
   const fake = fakeSource([n("a")]);
   fake.fail("__roots");
   const t = inRoot(() => createDatabaseTreeController({ source: fake.source, queryClient: client() }));
   await flush();
-  expect((t as unknown as { error?: (id: string | null) => unknown }).error?.(null)).toBeTruthy();
+  expect(t.error(null)).toBeInstanceOf(Error);
+  expect(t.flatRows()[0].placeholder).toBe("error");
 });
 
-knownDefect("B5", "loading placeholders are not selectable", async () => {
+it("regression(B5): loading placeholders are not selectable", async () => {
   const onSelect = vi.fn();
   const { t } = setup({ onSelect });
   await flush();
@@ -188,7 +190,7 @@ knownDefect("B5", "loading placeholders are not selectable", async () => {
   expect(onSelect).not.toHaveBeenCalled();
 });
 
-knownDefect("B6", "inserting the first child under a leaf makes it expandable", async () => {
+it("regression(B6): inserting the first child under a leaf makes it expandable", async () => {
   const { t, fake } = setup();
   await flush();
   fake.emit({ type: "insert", parentId: "b", node: n("b1") });
@@ -205,7 +207,7 @@ it("regression(B7): removing the selected node clears the selection", async () =
   expect(t.selectedId()).toBeNull();
 });
 
-knownDefect("G5", "expandAll on a lazy tree bounds concurrent child loads", async () => {
+it("regression(G5): expandAll on a lazy tree bounds concurrent child loads", async () => {
   const roots = Array.from({ length: 20 }, (_, i) => n(`r${i}`));
   const kids = Object.fromEntries(roots.map((r) => [r.id, [n(`${r.id}.k`)]]));
   const fake = fakeSource(roots, kids);
@@ -215,4 +217,150 @@ knownDefect("G5", "expandAll on a lazy tree bounds concurrent child loads", asyn
   t.expandAll();
   await flush();
   expect(fake.calls.children.length).toBeLessThanOrEqual(6);
+});
+
+describe("phase 5 — database tier", () => {
+  it("retry() reloads a failed branch; retry(null) refetches roots", async () => {
+    const { t, fake } = setup();
+    await flush();
+    fake.fail("a");
+    t.expand("a");
+    await flush();
+    expect(t.flatRows().find((r) => r.id === "a::placeholder")?.placeholder).toBe("error");
+    fake.heal("a");
+    await t.retry("a");
+    expect(t.error("a")).toBeNull();
+    expect(ids(t)).toContain("a1");
+    await t.retry(null);
+    expect(fake.calls.roots).toBe(2);
+  });
+
+  it("loading(id) and the roots loading state", async () => {
+    const { t, fake } = setup();
+    expect(t.loading(null)).toBe(true);
+    await flush();
+    expect(t.loading(null)).toBe(false);
+    fake.hold("a");
+    t.expand("a");
+    await flush();
+    expect(t.loading("a")).toBe(true);
+    expect(t.flatRows().find((r) => r.id === "a::placeholder")?.placeholder).toBe("loading");
+    fake.release("a");
+    await flush();
+    expect(t.loading("a")).toBe(false);
+  });
+
+  it("placeholder rows are not data: not in the index, not navigable", async () => {
+    const { t, fake } = setup();
+    await flush();
+    fake.hold("a");
+    t.expand("a");
+    const ph = t.flatRows().find((r) => r.kind === "placeholder")!;
+    expect(ph.navigable).toBe(false);
+    expect(t.index().has(ph.id)).toBe(false);
+    fake.release("a");
+  });
+
+  it("move: explicit move changes and updates whose parent changed", async () => {
+    const { t, fake } = setup();
+    await flush();
+    t.expand("a");
+    await flush();
+    fake.emit({ type: "move", id: "b", parentId: "a" });
+    await flush();
+    expect(t.index().parentOf("b")).toBe("a");
+    fake.emit({ type: "update", node: { ...n("b"), label: "B!" }, parentId: null });
+    await flush();
+    expect(t.index().parentOf("b")).toBeNull();
+    expect(t.index().get("b")!.label).toBe("B!");
+  });
+
+  it("moving under an unloaded parent makes it expandable; it then loads fresh", async () => {
+    const fake = fakeSource([n("a"), n("b"), n("c")], { a: [n("a1")] });
+    const t = inRoot(() => createDatabaseTreeController({ source: fake.source, queryClient: client() }));
+    await flush();
+    fake.emit({ type: "move", id: "c", parentId: "b" }); // b is a leaf, unloaded
+    await flush();
+    expect(ids(t)).toEqual(["a", "b"]);
+    expect(t.flatRows().find((r) => r.id === "b")!.hasChildren).toBe(true);
+  });
+
+  it("inserts respect source.compare", async () => {
+    const fake = fakeSource([n("a"), n("c")]);
+    fake.source.compare = (x, y) => x.id.localeCompare(y.id);
+    const t = inRoot(() => createDatabaseTreeController({ source: fake.source, queryClient: client() }));
+    await flush();
+    fake.emit({ type: "insert", parentId: null, node: { ...n("b"), payload: { leaf: true } } });
+    await flush();
+    expect(ids(t)).toEqual(["a", "b", "c"]);
+  });
+
+  it("removing a node forgets its loaded subtree (no stale cache on re-insert)", async () => {
+    const { t, fake } = setup();
+    await flush();
+    t.expand("a");
+    await flush();
+    fake.emit({ type: "remove", id: "a" });
+    await flush();
+    fake.emit({ type: "insert", parentId: null, node: n("a") });
+    await flush();
+    t.expand("a");
+    await flush();
+    expect(fake.calls.children).toEqual(["a", "a"]);
+  });
+
+  it("server search: uses source.search and loads ancestors to reveal hits", async () => {
+    const fake = fakeSource([n("a"), n("b")], { a: [n("a1")], a1: [n("deep", undefined, { label: "Needle" })] });
+    fake.source.search = async (q) => (q === "nee" ? [n("deep", undefined, { label: "Needle" })] : []);
+    fake.source.getAncestors = async (id) => (id === "deep" ? ["a", "a1"] : []);
+    const [q, setQ] = createSignal("");
+    const t = inRoot(() => createDatabaseTreeController({ source: fake.source, queryClient: client(), searchQuery: q }));
+    await flush();
+    setQ("nee");
+    for (let i = 0; i < 6; i++) await flush();
+    expect(ids(t)).toEqual(["a", "a1", "deep"]);
+    setQ("");
+    await flush();
+    expect(ids(t)).toEqual(["a", "b"]);
+  });
+
+  it("server search can be turned off (local matching over loaded nodes)", async () => {
+    const fake = fakeSource([n("a"), n("b")]);
+    const search = vi.fn(async () => []);
+    fake.source.search = search;
+    const t = inRoot(() => createDatabaseTreeController({ source: fake.source, queryClient: client(), searchQuery: "b", serverSearch: false }));
+    await flush();
+    expect(ids(t)).toEqual(["b"]);
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("dispose removes this tree's entries from a shared QueryClient", async () => {
+    const qc = client();
+    const keep = inRoot(() => createDatabaseTreeController({ source: fakeSource([n("x")]).source, queryClient: qc }));
+    const { t } = (() => {
+      const fake = fakeSource([n("a")], { a: [n("a1")] });
+      return { t: inRoot(() => createDatabaseTreeController({ source: fake.source, queryClient: qc })) };
+    })();
+    await flush();
+    t.expand("a");
+    await flush();
+    const before = qc.getQueryCache().getAll().length;
+    t.dispose();
+    expect(qc.getQueryCache().getAll().length).toBeLessThan(before);
+    expect(ids(keep)).toEqual(["x"]);
+  });
+
+  it("leak check: mounting and disposing 25 trees leaves the shared cache empty", async () => {
+    const qc = client();
+    for (let i = 0; i < 25; i++) {
+      const fake = fakeSource([n("a")], { a: [n("a1")] });
+      const t = inRoot(() => createDatabaseTreeController({ source: fake.source, queryClient: qc }));
+      await flush();
+      t.expand("a");
+      await flush();
+      t.dispose();
+      expect(fake.unsubscribed).toBe(1);
+    }
+    expect(qc.getQueryCache().getAll()).toHaveLength(0);
+  });
 });

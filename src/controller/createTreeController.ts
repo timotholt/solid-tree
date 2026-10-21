@@ -1,4 +1,4 @@
-import { createComputed, createEffect, createMemo, getOwner, on, untrack, type Accessor } from "solid-js";
+import { DEV, createComputed, createEffect, createMemo, getOwner, on, untrack, type Accessor } from "solid-js";
 import {
   buildIndex,
   defaultAccessors,
@@ -98,7 +98,14 @@ export function createTreeController<T extends TreeNodeData = TreeNodeData>(opts
       }
     });
   }
-  const index = createMemo(() => buildIndex(data() as T[], defaultAccessors<T>()));
+  // Duplicate ids: throw in development (find the bug), skip + report in production
+  // (a racing or buggy source must not take the whole tree down).
+  const index = createMemo(() =>
+    buildIndex(data() as T[], defaultAccessors<T>(), {
+      duplicates: DEV ? "throw" : "skip",
+      onDuplicate: (id) => console.error(`[solid-tree] duplicate node id "${id}" skipped`),
+    })
+  );
   const nodeOf = (id: string) => index().get(id);
 
   // ── selection ──────────────────────────────────────────────────────────────

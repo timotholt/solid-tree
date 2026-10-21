@@ -64,7 +64,7 @@ const VirtualRow: Component<{
       }}
       style={`position:absolute; top:0; left:0; width:100%; transform:translateY(${props.vi.start}px)`}
     >
-      <Show when={props.row()}>{(r) => <TreeRow node={r().node} depth={r().depth} />}</Show>
+      <Show when={props.row()}>{(r) => <TreeRow node={r().node} depth={r().depth} hasChildren={r().hasChildren} />}</Show>
     </div>
   );
 };

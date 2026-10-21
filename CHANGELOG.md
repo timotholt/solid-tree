@@ -6,6 +6,31 @@ breaking changes; they are always marked **Breaking**. Defect IDs refer to
 
 ## Unreleased
 
+### Changed (phase 5: database tier)
+- **Breaking:** loading/error placeholders are synthesized rows (`kind: "placeholder"`,
+  id `<parent>::placeholder`), not fake data nodes. They are not selectable and not in
+  the index (B5). `LOADING_TYPE` is now an alias of `PLACEHOLDER_TYPE`.
+- Cache keys are namespaced per controller (`queryKeyPrefix`), so trees sharing a
+  QueryClient no longer show each other's data (B2). Disposing a tree removes its
+  entries from a shared client and clears a client it created (G5).
+- Concurrent child loads are bounded (`maxConcurrentLoads`, default 4) (G5).
+- Realtime: `move` changes and updates whose parent changed are applied. Inserts honour
+  `source.compare`. A leaf that gains a child becomes expandable. Removing a node drops
+  its loaded subtree's cache (B6, B7). A moved node that was never loaded makes the tree
+  refetch its new parent. Patches apply in one batch, so a move never shows a node twice.
+- In production builds, a duplicate id is skipped and reported instead of crashing the
+  tree. Development builds still throw.
+
+### Added (phase 5)
+- `loading(id)`, `error(id)` and `retry(id)` (`null` = the roots), and error placeholder
+  rows (B4).
+- Server-side search: `source.search` is used while a query is active, and hits are
+  revealed through `source.getAncestors` (`serverSearch: false` opts out) (D6).
+- `TreeSource.compare` and `TreeSource.getAncestors`.
+- `@timotholt/solid-tree/testing`: `createMemorySource` (latency, seeded failures,
+  realtime mutations, search) and `runTreeSourceContract`, a conformance suite for
+  TreeSource adapters.
+
 ### Changed (phase 3: state + controller)
 - **Breaking:** controlled inputs (`selectedId`, `selectedIds`, `expandedIds`,
   `searchQuery`) are controlled when the prop/option is **passed**, decided once.
