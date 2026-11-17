@@ -8,6 +8,9 @@ on:
     - cron: "17 6 * * *" # nightly: extra browser engines
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   gate:
     name: gate (node ${{ matrix.node }})
@@ -18,6 +21,8 @@ jobs:
         node: [22, 24]
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -40,6 +45,8 @@ jobs:
         browser: [firefox, webkit]
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -56,6 +63,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -72,6 +81,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -86,6 +97,8 @@ jobs:
     continue-on-error: true # Solid 2 is a non-goal for 1.0; this tracks the distance
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
